@@ -27,6 +27,7 @@
 
 #define BACKLOG (10)
 #define MAX_CLIENTS (1024)
+#define MAX_EVENTS (1024)
 
 // forward declarations
 int acceptConnection(int server_socket);
