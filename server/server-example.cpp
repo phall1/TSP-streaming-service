@@ -10,22 +10,26 @@
  * Instead, make a copy of it named jukebox-server.c and modify that file.
  */
 
+// C++ standard libraries
 #include <string>
 
-#include <arpa/inet.h>
+// C standard libraries
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cerrno>
+
+// POSIX and OS-specific libraries
+#include <unistd.h>
 #include <dirent.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #define BACKLOG (10)
 #define MAX_CLIENTS (1024)
