@@ -10,6 +10,8 @@
  * Instead, make a copy of it named jukebox-server.c and modify that file.
  */
 
+#include <string>
+
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
@@ -283,7 +285,7 @@ int readMP3Files(char *dir) {
 
         FILE *infofile = NULL;
 
-        char *infostring = NULL;
+		std::string infostring;
 
         /* namelist[i]->d_name now contains the name of an mp3 file. */
         /* FIXME: You probably want to use this name to find file data. */
@@ -302,25 +304,26 @@ int readMP3Files(char *dir) {
         } else {
             /* We found and opened the info file. */
             int infosize = 1024;
-            infostring = malloc(infosize);
+            char *istring = (char*)malloc(infosize);
 
             do {
                 infosize *= 2;
-                infostring = realloc(infostring, infosize);
+                istring = (char*)realloc(istring, infosize);
 
-                bytes_read = fread(infostring + total_read, 1, infosize - total_read, infofile);
+                bytes_read = fread(istring + total_read, 1, infosize - total_read, infofile);
                 total_read += bytes_read;
             } while (bytes_read > 0);
 
             fclose(infofile);
 
             /* Zero-out the unused space at the end of the buffer. */
-            memset(infostring + total_read, 0, infosize - total_read);
+            memset(istring + total_read, 0, infosize - total_read);
+			infostring += istring;
         }
 
         /* infostring now contains the info data for this song. */
         /* FIXME: Use these info strings when clients send info commands. */
-        printf("Info:%s\n\n", infostring);
+        printf("Info:%s\n\n", infostring.c_str());
 
         free(namelist[i]);
     }

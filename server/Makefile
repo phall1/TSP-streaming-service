@@ -2,15 +2,16 @@
 # You should modify it to also compile a program called jukebox-server.
 # jukebox-server will be the server implementation of your Jukebox.
 
-CC = gcc
-CFLAGS = -g -O1 -Wall -Wextra
+CXX = g++
+CXXFLAGS = -g -O1 -Wall -Wextra -std=c++11
 
+SRC_FILES = server-example.cpp
 TARGETS = server-example
 
 all: $(TARGETS)
 
-server-example: server-example.c
-	$(CC) $(CFLAGS) -o $@ $^
+server-example: $(SRC_FILES)
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
 clean:
 	rm -f $(TARGETS)
