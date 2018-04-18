@@ -12,6 +12,12 @@
 
 // C++ standard libraries
 #include <string>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+
+// C++ extra libraries
+#include <boost/filesystem.hpp>
 
 // C standard libraries
 #include <cstdio>
@@ -35,10 +41,11 @@
 #define MAX_CLIENTS (1024)
 #define MAX_EVENTS (1024)
 
+namespace fs = boost::filesystem;
+
 // forward declarations
 int acceptConnection(int server_socket);
 void setNonBlocking(int sock);
-int filter(const struct dirent *ent);
 int readMP3Files(char *dir);
 
 /*
@@ -242,27 +249,12 @@ void setNonBlocking(int sock) {
     /* The socket is now in non-blocking mode. */
 }
 
-/* 
- * Checks wheter a filename ends in '.mp3'. 
- *
- * @info This is used below in readMP3Files. You probably don't need to use
- * it anywhere else.
- *
- * @param ent Directory entity that we are going to check.
- *
- * @return 0 if ent doesn't end in .mp3, 1 if it does.
- */
-int filter(const struct dirent *ent) {
-    int len = strlen(ent->d_name);
-
-    return !strncasecmp(ent->d_name + len - 4, ".mp3", 4);
-}
 
 /*
- * Given a path to a directory, this function scans that directory (using the
- * handy scandir library function) to produce an alphabetized list of files
- * whose names end in ".mp3".  For each one, it then also checks for a
- * corresponding ".info" file and reads that in its entirety.
+ * Given a path to a directory, this function searches the directory for any
+ * files that end in ".mp3".
+ * When it files an MP3 file, it also looks for an associated "info" file, and
+ * prints the contents of this file if it exists.
  *
  * @info You'll need to edit this to meet your needs (i.e. don't expect this
  * to do everything you want without any effort).
@@ -273,66 +265,29 @@ int filter(const struct dirent *ent) {
  * @return Number of MP3 files found inside of the specified directory.
  */
 int readMP3Files(char *dir) {
-    struct dirent **namelist;
-    int i,n;
+	int num_mp3_files = 0;
 
-    n = scandir(dir, &namelist, filter, alphasort);
-    if (n < 0) {
-        perror("scandir");
-        exit(1);
-    }
+	// Loop through all files in the directory
+	for(fs::directory_iterator entry(dir); entry != fs::directory_iterator(); ++entry) {
+		std::string filename = entry->path().filename().string();
 
-    for (i = 0; i < n; ++i) {
-        int bytes_read = 0;
-        int total_read = 0;
-        char path[1024];
+		// See if the current file is an MP3 file
+		if (entry->path().extension() == ".mp3") {
+			printf("(%d) %s\n", num_mp3_files, filename.c_str());
+			num_mp3_files++;
 
-        FILE *infofile = NULL;
+			// Look for an associated info file
+			fs::path info_file_path = entry->path();
+			info_file_path = info_file_path.replace_extension(".mp3.info");
+			if (fs::is_regular_file(info_file_path)) {
+				// read contents of file into a buffer
+				std::ifstream t(info_file_path.string());
+				std::stringstream buffer;
+				buffer << t.rdbuf();
+				printf("Info:\n%s\n\n", buffer.str().c_str());
+			}
+		}
+	}
 
-		std::string infostring;
-
-        /* namelist[i]->d_name now contains the name of an mp3 file. */
-        /* FIXME: You probably want to use this name to find file data. */
-        printf("(%d) %s\n", i, namelist[i]->d_name);
-
-        /* Build a path to a possible input file. */
-        strcpy(path, dir);
-        strcat(path, "/");
-        strcat(path, namelist[i]->d_name);
-        strcat(path, ".info");
-
-        infofile = fopen(path, "r");
-        if (infofile == NULL) {
-            /* It wasn't there (or failed to open for some other reason). */
-            infostring = "No information available.";
-        } else {
-            /* We found and opened the info file. */
-            int infosize = 1024;
-            char *istring = (char*)malloc(infosize);
-
-            do {
-                infosize *= 2;
-                istring = (char*)realloc(istring, infosize);
-
-                bytes_read = fread(istring + total_read, 1, infosize - total_read, infofile);
-                total_read += bytes_read;
-            } while (bytes_read > 0);
-
-            fclose(infofile);
-
-            /* Zero-out the unused space at the end of the buffer. */
-            memset(istring + total_read, 0, infosize - total_read);
-			infostring += istring;
-        }
-
-        /* infostring now contains the info data for this song. */
-        /* FIXME: Use these info strings when clients send info commands. */
-        printf("Info:%s\n\n", infostring.c_str());
-
-        free(namelist[i]);
-    }
-    free(namelist);
-
-    /* Return the number of files we found. */
-    return n;
+    return num_mp3_files;
 }
