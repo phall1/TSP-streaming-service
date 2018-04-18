@@ -3,7 +3,7 @@
 # jukebox-server will be the server implementation of your Jukebox.
 
 CXX = g++
-CXXFLAGS = -g -O1 -Wall -Wextra -std=c++11
+CXXFLAGS=-Wall -Wextra -g -O1 -std=c++17 -lboost_system -lboost_filesystem
 
 SRC_FILES = server-example.cpp
 TARGETS = server-example
