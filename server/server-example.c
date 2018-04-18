@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -94,68 +94,65 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-	/*
-	 * Select uses sets of file descriptors (type: fd_set) to determine which
-	 * file descriptors it will monitor.
-	 */
-    fd_set all_fds, read_fds, write_fds;
-	
-	FD_ZERO(&all_fds);
-	FD_ZERO(&read_fds);
-	FD_ZERO(&write_fds);
+	// Create the epoll, which returns a file descriptor for us to use later.
+	int epoll_fd = epoll_create1(0);
+	if (epoll_fd < 0) {
+		perror("epoll_create1");
+		exit(1);
+	}
 
-	/* 
-	 * Start by adding the server socket to the list of all socket file
-	 * descriptors.
-	 * We'll check that this is available for reading to see if we have a new
-	 * client trying to connect, which will force us to call accept().
-	 */
-	FD_SET(serv_sock, &all_fds);
+	// We want to watch for input events (i.e. connection requests) on our
+	// server socket.
+	struct epoll_event server_ev;
+	server_ev.data.fd = serv_sock;
+	server_ev.events = EPOLLIN;
 
-	/*
-	 * Keep track of the maximum file descriptor (which is just an integer),
-	 * which we'll need when calling select.
-	 */
-	int max_fd = serv_sock;
+	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, serv_sock, &server_ev) == -1) {
+		perror("epoll_ctl");
+		exit(1);
+	}
+
 
     while (1) {
+		// wait for some events to occur, writing them to our events array
+		struct epoll_event events[MAX_EVENTS];
 
-		/*
-		 * This will cause us to look for reads or writes on all of our
-		 * sockets.
-		 * You may want to change this if it doesn't make sense for how you
-		 * are communicating with clients.
-		 */
-		read_fds = all_fds;
-		write_fds = all_fds;
+		int num_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+		if (num_events < 0) {
+			perror("epoll_wait");
+			exit(1);
+		}
 
-		/* 
-		 * select() will block until one of the sockets we asked about is ready for
-		 * recving/sending.
-		 * IMPORTANT NOTE: Select only checks up to, but not including, the
-		 * value in the first param. For that reason, we'll add 1 to max_fd to
-		 * ensure that max_fd actually gets checked.
-		 */
-        val = select(max_fd+1, &read_fds, &write_fds, NULL, NULL);
+		// Loop through all the I/O events that just happened.
+		for (int n = 0; n < num_events; n++) {
+			// Check if this is a "hang up" event
+			if ((events[n].events & EPOLLRDHUP) != 0) {
+				// If we get here, the socket associated with this event was
+				// closed by the remote host so we should just call close here
+				// and remove this event using epoll_ctl with EPOLL_CTL_DEL.
+			}
 
-        if (val < 1) {
-            perror("select");
-            continue;
-        }
+			// Check if this is an "input" event
+			if ((events[n].events & EPOLLIN) != 0) {
+				if (events[n].data.fd == serv_sock) {
 
-        /* Check the FD_SETs after select returns.  These will tell us
-         * which sockets are ready for recving/sending. */
-        for (int i = 0; i <= max_fd; ++i) {
-            if (FD_ISSET(i, &read_fds)) {
-				if (i == serv_sock) {
 					// If the server socket is ready for "reading," that implies
 					// we have a new client that wants to connect so lets
 					// accept it.
 					int client_fd = acceptConnection(serv_sock);
-					
-					FD_SET(client_fd, &all_fds);
-					if (client_fd > max_fd) max_fd = client_fd;
 					printf("Accepted a new connection!\n");
+					
+					// Watch for input and output events and "hangup" events
+					// for new clients.
+					struct epoll_event new_client_ev;
+					new_client_ev.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP;
+					new_client_ev.data.fd = client_fd;
+
+					if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, 
+									&new_client_ev) == -1) {
+						perror("epoll_ctl: client_fd");
+						exit(1);
+					}
 
 					// Set this to non-blocking mode so we never get hung up
 					// trying to send or receive from this client.
@@ -167,8 +164,11 @@ int main(int argc, char **argv) {
 					// without worrying about blocking.
 				}
             }
-            if (FD_ISSET(i, &write_fds)) {
-                // Socket descriptor i is ready for writing.
+
+			// Check if this is an "output" event
+			if ((events[n].events & EPOLLOUT) != 0) {
+				// The socket associated wih this event is ready for writing
+				// (i.e. ready for us to send data to it).
 
                  /* 
 				  * I would recommend calling another function here rather
