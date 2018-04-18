@@ -45,6 +45,7 @@ namespace fs = boost::filesystem;
 
 // forward declarations
 int acceptConnection(int server_socket);
+int setup_server_socket(uint16_t port_num);
 void setNonBlocking(int sock);
 int readMP3Files(char *dir);
 
@@ -54,33 +55,20 @@ int readMP3Files(char *dir);
  * needed.
  */
 int main(int argc, char **argv) {
-    if (argc < 3) {
+    if (argc != 3) {
         printf("Usage:\n%s <port> <filedir>\n", argv[0]);
         exit(0);
     }
 
+	if (!fs::is_directory(argv[2])) {
+		printf("ERROR: %s is not a directory\n", argv[2]);
+		exit(1);
+	}
+
     // Get the port number from the arguments.
-    uint16_t port = (uint16_t) atoi(argv[1]);
+    uint16_t port = (uint16_t) std::stoul(argv[1]);
 
-    // Create the socket that we'll listen on.
-    int serv_sock = socket(AF_INET, SOCK_STREAM, 0);
-
-    /* 
-	 * Set SO_REUSEADDR so that we don't waste time in TCP's TIME_WAIT when we
-	 * shut down the connection.
-	 */
-    int val = setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, &val,
-            sizeof(val));
-
-    if (val < 0) {
-        perror("setsockopt");
-        exit(1);
-    }
-
-    /* Set our server socket to non-blocking mode.  This way, if we
-     * accidentally accept() when we shouldn't have, we won't block
-     * indefinitely. */
-    setNonBlocking(serv_sock);
+	int serv_sock = setup_server_socket(port);
 
     /* 
 	 * Read the other argument (mp3 directory).
@@ -88,25 +76,6 @@ int main(int argc, char **argv) {
 	 */
     int song_count = readMP3Files(argv[2]);
     printf("Found %d songs.\n", song_count);
-
-    struct sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = INADDR_ANY;
-
-    // Bind our socket and start listening for connections.
-    val = bind(serv_sock, (struct sockaddr*)&addr, sizeof(addr));
-    if(val < 0) {
-        perror("bind");
-        exit(1);
-    }
-
-	// Set our socket to listen for connections (which we'll later accept)
-    val = listen(serv_sock, BACKLOG);
-    if(val < 0) {
-        perror("listen");
-        exit(1);
-    }
 
 	// Create the epoll, which returns a file descriptor for us to use later.
 	int epoll_fd = epoll_create1(0);
@@ -127,7 +96,7 @@ int main(int argc, char **argv) {
 	}
 
 
-    while (1) {
+    while (true) {
 		// wait for some events to occur, writing them to our events array
 		struct epoll_event events[MAX_EVENTS];
 
@@ -191,6 +160,51 @@ int main(int argc, char **argv) {
             }
         }
     }
+}
+
+/**
+ * Creates a socket, sets it to non-blocking, binds it to the given port, then
+ * sets it to start listen for incoming connections.
+ *
+ * @param port_num The port number we will listen on.
+ * @return The file descriptor of the newly created/setup server socket.
+ */
+int setup_server_socket(uint16_t port_num) {
+    /* Create the socket that we'll listen on. */
+    int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    /* Set SO_REUSEADDR so that we don't waste time in TIME_WAIT. */
+    int val = setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, 
+							&val, sizeof(val));
+    if (val < 0) {
+        perror("Setting socket option failed");
+        exit(1);
+    }
+
+    /* 
+	 * Set our server socket to non-blocking mode.  This way, if we
+     * accidentally accept() when we shouldn't have, we won't block
+     * indefinitely.
+	 */
+    setNonBlocking(sock_fd);
+
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port_num);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    /* Bind our socket and start listening for connections. */
+    if (bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("Error binding to port");
+        exit(1);
+    }
+
+    if (listen(sock_fd, BACKLOG) < 0) {
+        perror("Error listening for connections");
+        exit(1);
+    }
+
+	return sock_fd;
 }
 
 /**
