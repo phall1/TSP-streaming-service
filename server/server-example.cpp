@@ -45,25 +45,20 @@ const int MAX_CLIENTS = 1024;
 const int MAX_EVENTS = 1024;
 
 // forward declarations
-int acceptConnection(int server_socket);
+int accept_connection(int server_socket);
 int setup_server_socket(uint16_t port_num);
-void setNonBlocking(int sock);
-int readMP3Files(char *dir);
+void set_non_blocking(int sock);
+int find_mp3_files(const char *dir);
 
-/*
- * The main function for the server.
- * You should refactor this to be smaller and add additional functionality as
- * needed.
- */
 int main(int argc, char **argv) {
     if (argc != 3) {
         cerr << "Usage: " << argv[0] << " <port> <filedir>\n";
-        exit(0);
+        exit(EXIT_FAILURE);
     }
 
 	if (!fs::is_directory(argv[2])) {
 		cerr << "ERROR: " << argv[2] << " is not a directory\n";
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
     // Get the port number from the arguments.
@@ -75,14 +70,14 @@ int main(int argc, char **argv) {
 	 * Read the other argument (mp3 directory).
 	 * See the notes for this function above.
 	 */
-    int song_count = readMP3Files(argv[2]);
+    int song_count = find_mp3_files(argv[2]);
     cout << "Found " << song_count << " songs.\n";
 
 	// Create the epoll, which returns a file descriptor for us to use later.
 	int epoll_fd = epoll_create1(0);
 	if (epoll_fd < 0) {
 		perror("epoll_create1");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	// We want to watch for input events (i.e. connection requests) on our
@@ -93,7 +88,7 @@ int main(int argc, char **argv) {
 
 	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, serv_sock, &server_ev) == -1) {
 		perror("epoll_ctl");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 
@@ -104,7 +99,7 @@ int main(int argc, char **argv) {
 		int num_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
 		if (num_events < 0) {
 			perror("epoll_wait");
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 
 		// Loop through all the I/O events that just happened.
@@ -123,7 +118,7 @@ int main(int argc, char **argv) {
 					// If the server socket is ready for "reading," that implies
 					// we have a new client that wants to connect so lets
 					// accept it.
-					int client_fd = acceptConnection(serv_sock);
+					int client_fd = accept_connection(serv_sock);
 					cout << "Accepted a new connection!\n";
 					
 					// Watch for input and output events and "hangup" events
@@ -135,12 +130,12 @@ int main(int argc, char **argv) {
 					if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, 
 									&new_client_ev) == -1) {
 						perror("epoll_ctl: client_fd");
-						exit(1);
+						exit(EXIT_FAILURE);
 					}
 
 					// Set this to non-blocking mode so we never get hung up
 					// trying to send or receive from this client.
-					setNonBlocking(client_fd);
+					set_non_blocking(client_fd);
 				}
 				else {
 					// This wasn't the server socket so this means we have a
@@ -179,7 +174,7 @@ int setup_server_socket(uint16_t port_num) {
 							&val, sizeof(val));
     if (val < 0) {
         perror("Setting socket option failed");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /* 
@@ -187,7 +182,7 @@ int setup_server_socket(uint16_t port_num) {
      * accidentally accept() when we shouldn't have, we won't block
      * indefinitely.
 	 */
-    setNonBlocking(sock_fd);
+    set_non_blocking(sock_fd);
 
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
@@ -197,12 +192,12 @@ int setup_server_socket(uint16_t port_num) {
     /* Bind our socket and start listening for connections. */
     if (bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         perror("Error binding to port");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     if (listen(sock_fd, BACKLOG) < 0) {
         perror("Error listening for connections");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
 	return sock_fd;
@@ -215,14 +210,14 @@ int setup_server_socket(uint16_t port_num) {
  * @param server_socket Socket descriptor of the server (that is listening)
  * @return Socket descriptor for newly connected client.
  */
-int acceptConnection(int server_socket) {
+int accept_connection(int server_socket) {
 	struct sockaddr_storage their_addr;
 	socklen_t addr_size = sizeof(their_addr);
 	int new_fd = accept(server_socket, (struct sockaddr *)&their_addr,
-			&addr_size);
+						&addr_size);
 	if (new_fd < 0) {
 		perror("accept");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	return new_fd;
@@ -243,25 +238,23 @@ int acceptConnection(int server_socket) {
  * @param sock The file descriptor for the socket you want to make
  * 				non-blocking.
  */
-void setNonBlocking(int sock) {
-    /* Get the current flags. We want to add O_NONBLOCK to this set. */
+void set_non_blocking(int sock) {
+    // Get the current flags
     int socket_flags = fcntl(sock, F_GETFD);
     if (socket_flags < 0) {
         perror("fcntl");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
-    /* Add in the O_NONBLOCK flag by bitwise ORing it to the old flags. */
+	// Add in the nonblock option
     socket_flags = socket_flags | O_NONBLOCK;
 
-    /* Set the new flags, including O_NONBLOCK. */
+    // Set the new flags, including O_NONBLOCK.
     int result = fcntl(sock, F_SETFD, socket_flags);
     if (result < 0) {
         perror("fcntl");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
-
-    /* The socket is now in non-blocking mode. */
 }
 
 
@@ -279,7 +272,7 @@ void setNonBlocking(int sock) {
  *
  * @return Number of MP3 files found inside of the specified directory.
  */
-int readMP3Files(char *dir) {
+int find_mp3_files(const char *dir) {
 	int num_mp3_files = 0;
 
 	// Loop through all files in the directory
