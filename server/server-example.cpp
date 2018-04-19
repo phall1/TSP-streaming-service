@@ -20,9 +20,6 @@
 #include <boost/filesystem.hpp>
 
 // C standard libraries
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <cerrno>
 
 // POSIX and OS-specific libraries
@@ -43,6 +40,10 @@
 
 namespace fs = boost::filesystem;
 
+using std::cin;
+using std::cerr;
+using std::string;
+
 // forward declarations
 int acceptConnection(int server_socket);
 int setup_server_socket(uint16_t port_num);
@@ -56,12 +57,12 @@ int readMP3Files(char *dir);
  */
 int main(int argc, char **argv) {
     if (argc != 3) {
-        printf("Usage:\n%s <port> <filedir>\n", argv[0]);
+        cerr << "Usage: " << argv[0] << " <port> <filedir>\n";
         exit(0);
     }
 
 	if (!fs::is_directory(argv[2])) {
-		printf("ERROR: %s is not a directory\n", argv[2]);
+		cerr << "ERROR: " << argv[2] << " is not a directory\n";
 		exit(1);
 	}
 
@@ -75,7 +76,7 @@ int main(int argc, char **argv) {
 	 * See the notes for this function above.
 	 */
     int song_count = readMP3Files(argv[2]);
-    printf("Found %d songs.\n", song_count);
+    cout << "Found " << song_count << " songs.\n";
 
 	// Create the epoll, which returns a file descriptor for us to use later.
 	int epoll_fd = epoll_create1(0);
@@ -123,7 +124,7 @@ int main(int argc, char **argv) {
 					// we have a new client that wants to connect so lets
 					// accept it.
 					int client_fd = acceptConnection(serv_sock);
-					printf("Accepted a new connection!\n");
+					cout << "Accepted a new connection!\n";
 					
 					// Watch for input and output events and "hangup" events
 					// for new clients.
@@ -287,7 +288,7 @@ int readMP3Files(char *dir) {
 
 		// See if the current file is an MP3 file
 		if (entry->path().extension() == ".mp3") {
-			printf("(%d) %s\n", num_mp3_files, filename.c_str());
+			cout << "(" << num_mp3_files << ") " << filename << "\n";
 			num_mp3_files++;
 
 			// Look for an associated info file
@@ -298,7 +299,7 @@ int readMP3Files(char *dir) {
 				std::ifstream t(info_file_path.string());
 				std::stringstream buffer;
 				buffer << t.rdbuf();
-				printf("Info:\n%s\n\n", buffer.str().c_str());
+				cout << "Info:\n" << buffer << "\n";
 			}
 		}
 	}
