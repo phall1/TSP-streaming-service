@@ -176,8 +176,9 @@ int accept_connection(int server_socket) {
  * 				non-blocking.
  */
 void set_non_blocking(int sock) {
+	cout << "setting non-blocking mode for " << sock << "\n";
     // Get the current flags
-    int socket_flags = fcntl(sock, F_GETFD);
+    int socket_flags = fcntl(sock, F_GETFL);
     if (socket_flags < 0) {
         perror("fcntl");
         exit(EXIT_FAILURE);
@@ -187,7 +188,7 @@ void set_non_blocking(int sock) {
     socket_flags = socket_flags | O_NONBLOCK;
 
     // Set the new flags, including O_NONBLOCK.
-    int result = fcntl(sock, F_SETFD, socket_flags);
+    int result = fcntl(sock, F_SETFL, socket_flags);
     if (result < 0) {
         perror("fcntl");
         exit(EXIT_FAILURE);
@@ -294,6 +295,10 @@ void event_loop(int epoll_fd, int server_socket) {
 					// accept it.
 					int client_fd = accept_connection(server_socket);
 					cout << "Accepted a new connection!\n";
+
+					// Set this to non-blocking mode so we never get hung up
+					// trying to send or receive from this client.
+					set_non_blocking(client_fd);
 					
 					// Watch for "input" and "hangup" events for new clients.
 					struct epoll_event new_client_ev;
@@ -306,9 +311,6 @@ void event_loop(int epoll_fd, int server_socket) {
 						exit(EXIT_FAILURE);
 					}
 
-					// Set this to non-blocking mode so we never get hung up
-					// trying to send or receive from this client.
-					set_non_blocking(client_fd);
 				}
 				else {
 					// This wasn't the server socket so this means we have a
