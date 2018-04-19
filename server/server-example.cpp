@@ -162,15 +162,9 @@ int accept_connection(int server_socket) {
 
 /* 
  * Use fcntl (file control) to set the given socket to non-blocking mode.
- *
- * @info Setting your sockets to non-blocking mode is not required, but it
- * might help with your debugging.  By setting each socket you get from
- * accept() to non-blocking, you can be sure that normally blocking calls like
- * send, recv, and accept will instead return an error condition and set errno
- * to EWOULDBLOCK/EAGAIN.  I would recommend that you set your sockets for
- * non-blocking and then explicitly check each call to send, recv, and accept
- * for this errno.  If you see it happening, you know that you're attempting
- * to call one of those functions when you shouldn't be.
+ * With non-blocking mode set, any time you try to call send or recv that
+ * would normally block, it will instead immediately return -1 and set errno
+ * to EAGAIN (or EWOULDBLOCK).
  *
  * @param sock The file descriptor for the socket you want to make
  * 				non-blocking.
