@@ -40,7 +40,7 @@
 
 namespace fs = boost::filesystem;
 
-using std::cin;
+using std::cout;
 using std::cerr;
 using std::string;
 
@@ -299,7 +299,7 @@ int readMP3Files(char *dir) {
 				std::ifstream t(info_file_path.string());
 				std::stringstream buffer;
 				buffer << t.rdbuf();
-				cout << "Info:\n" << buffer << "\n";
+				cout << "Info:\n" << buffer.str() << "\n";
 			}
 		}
 	}
