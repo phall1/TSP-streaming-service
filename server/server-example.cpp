@@ -34,15 +34,15 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#define BACKLOG (10)
-#define MAX_CLIENTS (1024)
-#define MAX_EVENTS (1024)
-
 namespace fs = boost::filesystem;
 
 using std::cout;
 using std::cerr;
 using std::string;
+
+const int BACKLOG = 10;
+const int MAX_CLIENTS = 1024;
+const int MAX_EVENTS = 1024;
 
 // forward declarations
 int acceptConnection(int server_socket);
