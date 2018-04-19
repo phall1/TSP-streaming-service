@@ -49,6 +49,7 @@ int accept_connection(int server_socket);
 int setup_server_socket(uint16_t port_num);
 void set_non_blocking(int sock);
 int find_mp3_files(const char *dir);
+void event_loop(int epoll_fd, int server_socket);
 
 int main(int argc, char **argv) {
     if (argc != 3) {
@@ -91,71 +92,7 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
-
-    while (true) {
-		// wait for some events to occur, writing them to our events array
-		struct epoll_event events[MAX_EVENTS];
-
-		int num_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
-		if (num_events < 0) {
-			perror("epoll_wait");
-			exit(EXIT_FAILURE);
-		}
-
-		// Loop through all the I/O events that just happened.
-		for (int n = 0; n < num_events; n++) {
-			// Check if this is a "hang up" event
-			if ((events[n].events & EPOLLRDHUP) != 0) {
-				// If we get here, the socket associated with this event was
-				// closed by the remote host so we should just call close here
-				// and remove this event using epoll_ctl with EPOLL_CTL_DEL.
-			}
-
-			// Check if this is an "input" event
-			if ((events[n].events & EPOLLIN) != 0) {
-				if (events[n].data.fd == serv_sock) {
-
-					// If the server socket is ready for "reading," that implies
-					// we have a new client that wants to connect so lets
-					// accept it.
-					int client_fd = accept_connection(serv_sock);
-					cout << "Accepted a new connection!\n";
-					
-					// Watch for input and output events and "hangup" events
-					// for new clients.
-					struct epoll_event new_client_ev;
-					new_client_ev.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP;
-					new_client_ev.data.fd = client_fd;
-
-					if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, 
-									&new_client_ev) == -1) {
-						perror("epoll_ctl: client_fd");
-						exit(EXIT_FAILURE);
-					}
-
-					// Set this to non-blocking mode so we never get hung up
-					// trying to send or receive from this client.
-					set_non_blocking(client_fd);
-				}
-				else {
-					// This wasn't the server socket so this means we have a
-					// client that has sent us data so we can receive it now
-					// without worrying about blocking.
-				}
-            }
-
-			// Check if this is an "output" event
-			if ((events[n].events & EPOLLOUT) != 0) {
-				// The socket associated wih this event is ready for writing
-				// (i.e. ready for us to send data to it).
-
-                 /* 
-				  * I would recommend calling another function here rather
-                  * than cluttering up main and this select loop.
-				  */
-            }
-        }
-    }
+	event_loop(epoll_fd, serv_sock);
 }
 
 /**
@@ -298,4 +235,97 @@ int find_mp3_files(const char *dir) {
 	}
 
     return num_mp3_files;
+}
+
+void handle_client_read(int client_fd) {
+	cout << "Ready to read from client " << client_fd << "\n";
+	char data[1024];
+	if (recv(client_fd, data, 1024, 0) < 0) {
+		perror("client_read recv");
+		exit(EXIT_FAILURE);
+	}
+	cout << data << "\n";
+}
+
+void handle_client_write(int client_fd) {
+	cout << "Ready to write to client " << client_fd << "\n";
+}
+
+void handle_client_close(int client_fd) {
+	cout << "Ready to close connection to client " << client_fd << "\n";
+	close(client_fd);
+}
+
+/**
+ * Waits for epoll events then handles them accordingly.
+ *
+ * @param epoll_fd File descriptor for our epoll.
+ * @param server_socket Socket that is listening for connections.
+ */
+void event_loop(int epoll_fd, int server_socket) {
+    while (true) {
+		// wait for some events to occur, writing them to our events array
+		struct epoll_event events[MAX_EVENTS];
+
+		int num_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+		if (num_events < 0) {
+			perror("epoll_wait");
+			exit(EXIT_FAILURE);
+		}
+
+		// Loop through all the I/O events that just happened.
+		for (int n = 0; n < num_events; n++) {
+			// Check if this is a "hang up" event (i.e. client closed the
+			// connection).
+			if ((events[n].events & EPOLLRDHUP) != 0) {
+				// If we get here, the socket associated with this event was
+				// closed by the remote host so we should just call close here
+				// and remove this event using epoll_ctl with EPOLL_CTL_DEL.
+				handle_client_close(events[n].data.fd);
+			}
+
+			// Check if this is an "input" event (i.e. ready to "read" from
+			// this socket)
+			else if ((events[n].events & EPOLLIN) != 0) {
+				if (events[n].data.fd == server_socket) {
+
+					// If the server socket is ready for "reading," that implies
+					// we have a new client that wants to connect so lets
+					// accept it.
+					int client_fd = accept_connection(server_socket);
+					cout << "Accepted a new connection!\n";
+					
+					// Watch for "input" and "hangup" events for new clients.
+					struct epoll_event new_client_ev;
+					new_client_ev.events = EPOLLIN | EPOLLRDHUP;
+					new_client_ev.data.fd = client_fd;
+
+					if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, 
+									&new_client_ev) == -1) {
+						perror("epoll_ctl: client_fd");
+						exit(EXIT_FAILURE);
+					}
+
+					// Set this to non-blocking mode so we never get hung up
+					// trying to send or receive from this client.
+					set_non_blocking(client_fd);
+				}
+				else {
+					// This wasn't the server socket so this means we have a
+					// client that has sent us data so we can receive it now
+					// without worrying about blocking.
+					handle_client_read(events[n].data.fd);
+				}
+            }
+
+			// Check if this is an "output" event.
+			// Note: You may want/need to make this an else if, depending on
+			// how you are handling clients.
+			if ((events[n].events & EPOLLOUT) != 0) {
+				// The socket associated wih this event is ready for writing
+				// (i.e. ready for us to send data to it).
+				handle_client_write(events[n].data.fd);
+            }
+        }
+    }
 }
