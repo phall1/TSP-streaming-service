@@ -4,6 +4,7 @@ jukebox-server
 
 *.o
 *.class
+*.jar
 
 *.swp
 .DS_Store
