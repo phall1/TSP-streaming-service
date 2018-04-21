@@ -1,13 +1,9 @@
 /*
- * File: server-example.c
+ * File: jukebox-server.cpp
  *
  * Authors: (TODO: Fill this in with author info)
  *
- * Example code to help get you starter with your Jukebox server.
- * 
- * DO NOT MODIFY THIS FILE!!!
- *
- * Instead, make a copy of it named jukebox-server.c and modify that file.
+ * Server for an Internet Jukebox.
  */
 
 // C++ standard libraries
