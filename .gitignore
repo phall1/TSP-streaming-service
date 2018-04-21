@@ -1,4 +1,6 @@
-server-example
+jukebox-server
+
+*.mp3
 
 *.o
 *.class
