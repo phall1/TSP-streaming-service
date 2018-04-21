@@ -15,6 +15,8 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <map>
+#include <vector>
 
 // C++ extra libraries
 #include <boost/filesystem.hpp>
@@ -34,15 +36,18 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#include "ChunkedDataSender.h"
+#include "ConnectedClient.h"
+
 namespace fs = boost::filesystem;
 
 using std::cout;
 using std::cerr;
 using std::string;
+using std::vector;
 
 const int BACKLOG = 10;
-const int MAX_CLIENTS = 1024;
-const int MAX_EVENTS = 1024;
+const int MAX_EVENTS = 64;
 
 // forward declarations
 int accept_connection(int server_socket);
@@ -170,7 +175,6 @@ int accept_connection(int server_socket) {
  * 				non-blocking.
  */
 void set_non_blocking(int sock) {
-	cout << "setting non-blocking mode for " << sock << "\n";
     // Get the current flags
     int socket_flags = fcntl(sock, F_GETFL);
     if (socket_flags < 0) {
@@ -193,11 +197,13 @@ void set_non_blocking(int sock) {
 /*
  * Given a path to a directory, this function searches the directory for any
  * files that end in ".mp3".
- * When it files an MP3 file, it also looks for an associated "info" file, and
+ * When it files an MP3 file, it also looks for an associated ".info" file, and
  * prints the contents of this file if it exists.
  *
  * @info You'll need to edit this to meet your needs (i.e. don't expect this
- * to do everything you want without any effort).
+ * to do everything you want without any effort). I would recommend making it
+ * return a vector (C++'s version of Java's ArrayList) containing the paths to
+ * each of the mp3 files you find.
  *
  * @param dir String that represents the path to the directory that you want
  * 				to check.
@@ -209,7 +215,7 @@ int find_mp3_files(const char *dir) {
 
 	// Loop through all files in the directory
 	for(fs::directory_iterator entry(dir); entry != fs::directory_iterator(); ++entry) {
-		std::string filename = entry->path().filename().string();
+		string filename = entry->path().filename().string();
 
 		// See if the current file is an MP3 file
 		if (entry->path().extension() == ".mp3") {
@@ -232,23 +238,44 @@ int find_mp3_files(const char *dir) {
     return num_mp3_files;
 }
 
-void handle_client_read(int client_fd) {
-	cout << "Ready to read from client " << client_fd << "\n";
-	char data[1024];
-	if (recv(client_fd, data, 1024, 0) < 0) {
-		perror("client_read recv");
+/**
+ * Accepts a new client then sets the server up to be ready to receive data
+ * from that client.
+ * After exiting, we'll have a new client set to RECEIVING mode, our socket to
+ * that client will be non-blocking, and our epoll interest list will contain
+ * this new client (watching for inputs or closes from the client).
+ *
+ * @param server_socket Socket listening for new connections.
+ * @param clients Mapping between client sockets and client info
+ * @param epoll_fd File descriptor for epoll
+ */
+void setup_new_client(int server_socket, 
+						std::map<int, ConnectedClient> &clients, 
+						int epoll_fd) {
+	int client_fd = accept_connection(server_socket);
+	cout << "Accepted a new connection!\n";
+
+	// Set this to non-blocking mode so we never get hung up
+	// trying to send or receive from this client.
+	set_non_blocking(client_fd);
+
+	// Watch for "input" and "hangup" events for new clients.
+	struct epoll_event new_client_ev;
+	new_client_ev.events = EPOLLIN | EPOLLRDHUP;
+	new_client_ev.data.fd = client_fd;
+
+	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, 
+					&new_client_ev) == -1) {
+		perror("epoll_ctl: client_fd");
 		exit(EXIT_FAILURE);
 	}
-	cout << data << "\n";
-}
 
-void handle_client_write(int client_fd) {
-	cout << "Ready to write to client " << client_fd << "\n";
-}
+	ConnectedClient cc;
+	cc.client_fd = client_fd;
+	cc.sender = NULL;
+	cc.state = RECEIVING;
 
-void handle_client_close(int client_fd) {
-	cout << "Ready to close connection to client " << client_fd << "\n";
-	close(client_fd);
+	clients[client_fd] = cc;
 }
 
 /**
@@ -258,6 +285,9 @@ void handle_client_close(int client_fd) {
  * @param server_socket Socket that is listening for connections.
  */
 void event_loop(int epoll_fd, int server_socket) {
+	// associate client's file descriptor with its ConnectedClient object
+	std::map<int, ConnectedClient> clients;
+
     while (true) {
 		// wait for some events to occur, writing them to our events array
 		struct epoll_event events[MAX_EVENTS];
@@ -274,43 +304,29 @@ void event_loop(int epoll_fd, int server_socket) {
 			// connection).
 			if ((events[n].events & EPOLLRDHUP) != 0) {
 				// If we get here, the socket associated with this event was
-				// closed by the remote host so we should just call close here
-				// and remove this event using epoll_ctl with EPOLL_CTL_DEL.
-				handle_client_close(events[n].data.fd);
+				// closed by the remote host so we should clean up.
+				clients[events[n].data.fd].handle_close(epoll_fd);
+				clients.erase(events[n].data.fd);
 			}
 
 			// Check if this is an "input" event (i.e. ready to "read" from
 			// this socket)
 			else if ((events[n].events & EPOLLIN) != 0) {
 				if (events[n].data.fd == server_socket) {
-
-					// If the server socket is ready for "reading," that implies
-					// we have a new client that wants to connect so lets
-					// accept it.
-					int client_fd = accept_connection(server_socket);
-					cout << "Accepted a new connection!\n";
-
-					// Set this to non-blocking mode so we never get hung up
-					// trying to send or receive from this client.
-					set_non_blocking(client_fd);
-					
-					// Watch for "input" and "hangup" events for new clients.
-					struct epoll_event new_client_ev;
-					new_client_ev.events = EPOLLIN | EPOLLRDHUP;
-					new_client_ev.data.fd = client_fd;
-
-					if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, 
-									&new_client_ev) == -1) {
-						perror("epoll_ctl: client_fd");
-						exit(EXIT_FAILURE);
-					}
-
+					/*
+					 * If the server socket is ready for "reading," that implies
+					 * we have a new client that wants to connect so lets
+					 * set up that new client now.
+					 */
+					setup_new_client(server_socket, clients, epoll_fd);
 				}
 				else {
-					// This wasn't the server socket so this means we have a
-					// client that has sent us data so we can receive it now
-					// without worrying about blocking.
-					handle_client_read(events[n].data.fd);
+					/*
+					 * This wasn't the server socket so this means we have a
+					 * client that has sent us data so we can receive it now
+					 * without worrying about blocking.
+					 */
+					clients[events[n].data.fd].handle_input(epoll_fd);
 				}
             }
 
@@ -318,9 +334,15 @@ void event_loop(int epoll_fd, int server_socket) {
 			// Note: You may want/need to make this an else if, depending on
 			// how you are handling clients.
 			if ((events[n].events & EPOLLOUT) != 0) {
-				// The socket associated wih this event is ready for writing
-				// (i.e. ready for us to send data to it).
-				handle_client_write(events[n].data.fd);
+				/* 
+				 * If you set things up correctly, you should only reach this
+				 * point if you started sending a response, but had to stop.
+				 * You'll therefore need to continue sending whatever response
+				 * you had in progress.
+				 */
+				// TODO: Create a new function in your ConnectedClient class
+				// and call that here, sort of like what was done for
+				// handle_input and handle_close earlier in this function.
             }
         }
     }

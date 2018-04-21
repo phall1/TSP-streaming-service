@@ -5,12 +5,12 @@
 CXX = g++
 CXXFLAGS=-Wall -Wextra -g -O1 -std=c++11 -lboost_system -lboost_filesystem
 
-SRC_FILES = server-example.cpp ChunkedDataSender.cpp
+SRC_FILES = server-example.cpp ChunkedDataSender.cpp ConnectedClient.cpp
 TARGETS = server-example
 
 all: $(TARGETS)
 
-server-example: $(SRC_FILES) ChunkedDataSender.h
+server-example: $(SRC_FILES) ChunkedDataSender.h ConnectedClient.h
 	$(CXX) $(CXXFLAGS) -o $@ $(SRC_FILES)
 
 clean:
