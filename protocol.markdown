@@ -8,16 +8,22 @@ framework to enable controlled, on-demand deliver of real-time data, such as
 audio files. Sources of this data must be stored clips, but can be extended to
 include live feeds.
 
+IMPORTANT: Our project will be written entirely in go (golang).
+
 ### Header Format
 ---
 
-The messages will contain a standard TCP header. Data segments should have the
-following format:
+The messages will be packaged with a standard TCP header.
+TSP information will be located at the beginning of the TCP data payload.
+Our header will contain:
+1 byte for the request type, for example a "list" command
+4 bytes for a song ID number
+This header could be followed by encoded mp3 data if necessary.
 
 #### Tracker Server 
 
 The tracker server keeps track of the all peers currently running the program, and the 
-mp3 files that they host. When starting the program, peers first  initiate 
+mp3 files that they host. When starting the program, peers first initiate 
 a connection with the tracker, to let the tracker know they are on 
 the network. The tracker then requests a list of all songs that the peer is 
 hosting, and adds them to the list hosted by the tracker. 
