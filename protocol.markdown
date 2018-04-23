@@ -11,7 +11,8 @@ include live feeds.
 ### Header Format
 ---
 
-The messages will contain a standard TCP header. Messages are interpreted 
+The messages will contain a standard TCP header. Data segments should have the
+following format:
 
 #### Tracker Server 
 
@@ -22,26 +23,30 @@ the network. The tracker then requests a list of all songs that the peer is
 hosting, and adds them to the list hosted by the tracker. 
 
 ##### Incoming messages
-* 'list' 
+* `list` 
     * replies with a list of songs, and the machines on which they are hosted
-* 'info'
+* 'info <song id>'
     * provides info for the song requested
     * returns this to the client
+    * if an id is specified, only send info for that song
+    * no additional args sends info for all songs
 ##### Outgoing messages
 * 'list.info'
     * sends list of available songs and their associated hosts
 * 'song.info'
     * sends information about a particular song
+* 'broadcase list.info'
+    * sends list of available songs and their associated hosts to all peers
 
 #### Peers
 
-##### Outgoing messages 
+##### Outgoing messages
 * 'list' 
     * Requests a list of songs from the tracker
     * Tracker returns list of songs and their associated ips
         * ?? Should we keep this list for when we want to play??
 * 'info' 
-    * Requests other info for the song from the 
+    * Requests other info for the song from the tracker
 * 'play'
     * requests ip address of peer hosting the specified song
     * streams the song from the appropriate client
