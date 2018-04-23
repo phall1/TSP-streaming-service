@@ -31,38 +31,38 @@ hosting, and adds them to the list hosted by the tracker.
 ##### Incoming messages
 * `list` 
     * replies with a list of songs, and the machines on which they are hosted
-* 'info <song id>'
+* `info <song id>`
     * provides info for the song requested
     * returns this to the client
     * if an id is specified, only send info for that song
     * no additional args sends info for all songs
 ##### Outgoing messages
-* 'list.info'
+* `list.info`
     * sends list of available songs and their associated hosts
-* 'song.info'
+* `song.info`
     * sends information about a particular song
-* 'broadcase list.info'
+* `broadcast list.info`
     * sends list of available songs and their associated hosts to all peers
 
 #### Peers
 
 ##### Outgoing messages
-* 'list' 
+* `list` 
     * Requests a list of songs from the tracker
     * Tracker returns list of songs and their associated ips
         * ?? Should we keep this list for when we want to play??
-* 'info' 
+* `info` 
     * Requests other info for the song from the tracker
-* 'play'
+* `play`
     * requests ip address of peer hosting the specified song
     * streams the song from the appropriate client
-* 'stop' 
+* `stop` 
     * stops playing and closes connection with peer if not yet closed
 
 ##### Incoming messages 
-* 'info'
+* `info`
     * sends associated song data to the requester
-* 'play'
+* `play`
     * sends the requested mp3 file to the requester
-* 'stop'
+* `stop`
     * stops sending data and closes connection
