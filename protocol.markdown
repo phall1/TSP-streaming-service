@@ -8,8 +8,10 @@ framework to enable controlled, on-demand deliver of real-time data, such as
 audio files. Sources of this data must be stored clips, but can be extended to
 include live feeds.
 
-### Something 
+### Header Format
 ---
+
+The messages will contain a standard TCP header. Messages are interpreted 
 
 #### Tracker Server 
 
@@ -19,13 +21,20 @@ a connection with the tracker, to let the tracker know they are on
 the network. The tracker then requests a list of all songs that the peer is 
 hosting, and adds them to the list hosted by the tracker. 
 
+##### Incoming messages
 * 'list' 
     * replies with a list of songs, and the machines on which they are hosted
 * 'info'
     * provides info for the song requested
     * returns this to the client
+##### Outgoing messages
+* 'list.info'
+    * sends list of available songs and their associated hosts
+* 'song.info'
+    * sends information about a particular song
 
 #### Peers
+
 ##### Outgoing messages 
 * 'list' 
     * Requests a list of songs from the tracker
@@ -36,15 +45,13 @@ hosting, and adds them to the list hosted by the tracker.
 * 'play'
     * requests ip address of peer hosting the specified song
     * streams the song from the appropriate client
-* 'stop' - stops playing and closes connection with peer if not yet closed
+* 'stop' 
+    * stops playing and closes connection with peer if not yet closed
 
 ##### Incoming messages 
-* ''
-
-
-### Protocol - RTSP
----
-RTSP has a state
-* ID is used when needed to track concurrent sessions??
-
-* Uses TCP to maintain end-to-end connection
+* 'info'
+    * sends associated song data to the requester
+* 'play'
+    * sends the requested mp3 file to the requester
+* 'stop'
+    * stops sending data and closes connection
