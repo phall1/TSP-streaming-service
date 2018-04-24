@@ -4,6 +4,7 @@ import (
     "net"
     "os"
     "fmt"
+    // "io/ioutil"
 
     // "github.com/gorilla/websocket"
 )
@@ -12,7 +13,7 @@ const BACKLOG = 10
 const MAX_EVENTS = 64
 
 func main() {
-    args := os.Args[0:]
+    args := os.Args[:]
     if len(args) != 3 {
         fmt.Println("Usage: ", args[0], "<port> <filedir>")
         os.Exit(1)
@@ -23,8 +24,6 @@ func main() {
         fmt.Println("filedir does not exist")
         os.Exit(1)
     }
-
-    // Get the port number from arguments
 
     // setup server socket
     ln, err := net.Listen("tcp", ":"+args[1])
@@ -46,11 +45,20 @@ func main() {
 }
 
 func handleConnection(client net.Conn) {
-    fmt.Println(client)    
-    
-    testmsg := "hello"
+    buffer := make([]byte, 4096)
+    client.Read(buffer)
 
-    client.Write([]byte(testmsg + "\n"))
+    fmt.Printf(buffer)
+    // fmt.Println(client)
+    // testmsg := "hello"
+    // client.Write([]byte(testmsg + "\n"))
     // get songs from client
     // send out info about songs to all hosts
+
+
+    // receive songs from client
+
+    // update info doc (locks)
+
+    // send client (all?) updated doc
 }
