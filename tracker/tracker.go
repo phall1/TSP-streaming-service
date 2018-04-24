@@ -47,6 +47,10 @@ func main() {
 
 func handleConnection(client net.Conn) {
     fmt.Println(client)    
+    
+    testmsg := "hello"
+
+    client.Write([]byte(testmsg + "\n"))
     // get songs from client
     // send out info about songs to all hosts
 }
