@@ -16,13 +16,13 @@ IMPORTANT: Our project will be written entirely in go (golang).
 The messages will be packaged with a standard TCP header.
 TSP information will be located at the beginning of the TCP data payload.
 Our header will contain:
-1 byte for the request type, for example a "list" command
-4 bytes for a song ID number
+| Request Type (1 byte) | Song ID (4 byte int) |
+|:---------------------:|:--------------------:|
 This header could be followed by encoded mp3 data if necessary.
 
 #### Tracker Server 
 
-The tracker server keeps track of the all peers currently running the program, and the 
+The tracker server keeps track of all the peers currently running the program, and the 
 mp3 files that they host. When starting the program, peers first initiate 
 a connection with the tracker, to let the tracker know they are on 
 the network. The tracker then requests a list of all songs that the peer is 
@@ -41,7 +41,7 @@ hosting, and adds them to the list hosted by the tracker.
     * sends list of available songs and their associated hosts
 * `song.info`
     * sends information about a particular song
-* `broadcast list.info`
+* `broadcast_list.info`
     * sends list of available songs and their associated hosts to all peers
 
 #### Peers
