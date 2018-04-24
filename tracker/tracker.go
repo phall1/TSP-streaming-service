@@ -40,7 +40,13 @@ func main() {
             // error accepting this connection
             continue
         }
-        fmt.Println(conn)
-        // go handleConnection
+        //fmt.Println(conn)
+        go handleConnection(conn)
     }
+}
+
+func handleConnection(client net.Conn) {
+    fmt.Println(client)    
+    // get songs from client
+    // send out info about songs to all hosts
 }
