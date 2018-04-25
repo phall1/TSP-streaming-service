@@ -1,9 +1,7 @@
 package main
 
 import (
-	// "bufio"
 	"fmt"
-	// "io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -11,21 +9,14 @@ import (
 )
 
 const (
-	BACKLOG    = 10
-	MAX_EVENTS = 64
-	INFO_FILE  = "songs.info"
+	INFO_FILE = "songs.info"
 )
 
 func main() {
 	args := os.Args[:]
-	if len(args) != 3 {
-		fmt.Println("Usage: ", args[0], "<port> <filedir>")
+	if len(args) != 2 {
+		fmt.Println("Usage: ", args[0], "<port>")
 		os.Exit(1)
-	}
-
-	// Exit if filedir does not exist
-	if _, err := os.Stat(args[2]); os.IsNotExist(err) {
-		panic(err)
 	}
 
 	// setup server socket
@@ -56,6 +47,7 @@ func write_songs_to_info(peer net.Conn, song_bytes []byte) {
 		panic("cant open songs.info file")
 	}
 	defer info_file.Close()
+
 	for _, s := range song_strs {
 		record := "ID, " + ip + s
 		info_file.WriteString(record + "\n")
