@@ -10,6 +10,8 @@ import (
 
 const (
 	INFO_FILE = "songs.info"
+	INIT      = 0
+	LIST      = 1
 )
 
 func main() {
@@ -57,23 +59,28 @@ func write_songs_to_info(peer net.Conn, song_bytes []byte) {
 }
 
 func handleConnection(peer net.Conn) {
-
-	// info_bytes, err:= ioutil.ReadAll(peer)
 	buff := make([]byte, 4096)
 	bytes_read, err := peer.Read(buff)
 	if err != nil {
 		fmt.Println("error reading song")
 		os.Exit(1)
 	}
-
 	buff = append(buff[:bytes_read])
 
+	switch buff[:1] {
+	//case 0:
+	//case 1:
+	default:
+		fmt.Println("bad msg header")
+		return
+	}
+
 	write_songs_to_info(peer, buff)
-	os.Exit(1)
 
 	// get songs from client
 	// send out info about songs to all hosts
 
+	os.Exit(1)
 	// receive songs from client
 
 	// update info doc (locks)

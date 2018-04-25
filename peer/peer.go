@@ -1,47 +1,64 @@
 package main
 
 import (
-    "os"
-    "net"
-    "fmt"
-    "bufio"
-    "path"
-    "io/ioutil"
+	"bufio"
+	"bytes"
+	"encoding/gob"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"os"
+	"path"
 )
 
+type tsp_header struct {
+	//one byte for type
+	//int song ID
+	t       byte
+	song_id int
+}
+
+type tsp_msg struct {
+	header tsp_header
+	msg    []byte
+}
+
 func main() {
-    args := os.Args[:]
-    if len(args) != 3 {
-        fmt.Println("Usage: ", args[0], "<port> <filedir>")
-        os.Exit(1)
-    }
+	args := os.Args[:]
+	if len(args) != 3 {
+		fmt.Println("Usage: ", args[0], "<port> <filedir>")
+		os.Exit(1)
+	}
 
-    songs := get_local_song_info(args[2])
+	songs := get_local_song_info(args[2])
 
-    // Connect to tacker
-    tracker, err := net.Dial("tcp", "localhost:" + args[1])
-    if err != nil {
-        fmt.Println("some error")
-    }
+	// Connect to tacker
+	tracker, err := net.Dial("tcp", "localhost:"+args[1])
+	if err != nil {
+		fmt.Println("some error")
+	}
 
-    send_local_song_info(tracker, songs)
+	send_local_song_info(tracker, songs)
 
-    // receive remote song list ## STORE IN MEMORY ##
+	// Close connection with the tracker
 
+	// SPIN
 
-    // wait for user action (play, other stuff)
+	// receive remote song list ## STORE IN MEMORY ##
 
-    for {
-        reader := bufio.NewReader(os.Stdin)
-        fmt.Println("text to send: ")
-        text, _ := reader.ReadString('\n')
+	// wait for user action (play, other stuff)
 
-        // send to Socket
-        fmt.Fprintf(tracker, text + "\n")
+	for {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Println("text to send: ")
+		text, _ := reader.ReadString('\n')
 
-        reply, _ := bufio.NewReader(tracker).ReadString('\n')
-        fmt.Print("Message from server: " + reply)
-    }
+		// send to Socket
+		fmt.Fprintf(tracker, text+"\n")
+
+		reply, _ := bufio.NewReader(tracker).ReadString('\n')
+		fmt.Print("Message from server: " + reply)
+	}
 }
 
 func receive_remote_song_info() {
@@ -54,36 +71,48 @@ func receive_remote_song_info() {
  */
 // func get_songs(dir_name string) []os.FileInfo {
 func get_local_song_info(dir_name string) []string {
-    // Read files from directory
-    info_files, err := ioutil.ReadDir(dir_name)
-    if err != nil {
-        fmt.Println("cant read songs")
-        os.Exit(1)
-    }
+	// Read files from directory
+	info_files, err := ioutil.ReadDir(dir_name)
+	if err != nil {
+		fmt.Println("cant read songs")
+		os.Exit(1)
+	}
 
-    // Extract content of files and add to slice of strings
-    song_info := make([]string, len(info_files))
+	// Extract content of files and add to slice of strings
+	song_info := make([]string, len(info_files))
 
-    for i := 0; i < len(info_files); i++ {
-        if path.Ext(info_files[i].Name()) != ".info" {
-            continue;
-        }
-        content, _ := ioutil.ReadFile(dir_name + "/" + info_files[i].Name())
-        song_info = append(song_info, string(content[:]))
-    }
-    return song_info 
+	for i := 0; i < len(info_files); i++ {
+		if path.Ext(info_files[i].Name()) != ".info" {
+			continue
+		}
+		content, _ := ioutil.ReadFile(dir_name + "/" + info_files[i].Name())
+		song_info = append(song_info, string(content[:]))
+	}
+	return song_info
 }
 
 /*
- * send this peers song list to the 
+ * send this peers song list to the
  * tracker server
  */
 // func send_song_list(tracker net.Conn, songs []os.FileInfo) {
 func send_local_song_info(tracker net.Conn, songs []string) {
-    msg := ""
-    for _, s := range songs {
-        msg += s 
-    }
-    tracker.Write([]byte(msg))
-}
+	// Prepare header
+	hdr := tsp_header{t: 0, song_id: 0}
 
+	// fmt.Printf("%T\n", hdr)
+
+	msg_content := ""
+	for _, s := range songs {
+		msg_content += s
+	}
+
+	msg_struct := tsp_msg{header: hdr, msg: []byte(msg_content)}
+
+	bin_buff := new(bytes.Buffer)
+
+	gobobj := gob.NewEncoder(bin_buff)
+	gobobj.Encode(msg_struct)
+
+	tracker.Write(bin_buff.Bytes())
+}
