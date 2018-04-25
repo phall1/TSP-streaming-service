@@ -1,65 +1,90 @@
 package main
 
 import (
-    "net"
-    "os"
-    "fmt"
-    // "io/ioutil"
-
-    // "github.com/gorilla/websocket"
+	// "bufio"
+	"fmt"
+	// "io/ioutil"
+	"net"
+	"os"
+	"strings"
+	// "github.com/gorilla/websocket"
 )
 
-const BACKLOG = 10
-const MAX_EVENTS = 64
+const (
+	BACKLOG    = 10
+	MAX_EVENTS = 64
+	INFO_FILE  = "songs.info"
+)
 
 func main() {
-    args := os.Args[:]
-    if len(args) != 3 {
-        fmt.Println("Usage: ", args[0], "<port> <filedir>")
-        os.Exit(1)
-    }
+	args := os.Args[:]
+	if len(args) != 3 {
+		fmt.Println("Usage: ", args[0], "<port> <filedir>")
+		os.Exit(1)
+	}
 
-    // Exit if filedir does not exist
-    if _, err := os.Stat(args[2]); os.IsNotExist(err) {
-        fmt.Println("filedir does not exist")
-        os.Exit(1)
-    }
+	// Exit if filedir does not exist
+	if _, err := os.Stat(args[2]); os.IsNotExist(err) {
+		panic(err)
+	}
 
-    // setup server socket
-    ln, err := net.Listen("tcp", ":"+args[1])
-    if err != nil {
-        fmt.Println(err)
-        fmt.Println("error setting up socket")
-        os.Exit(1)
-    }
+	// setup server socket
+	ln, err := net.Listen("tcp", ":"+args[1])
+	if err != nil {
+		panic(err)
+	}
+	// defer ln.Close() //close connection when function is done
 
-    for {
-        conn, err := ln.Accept()
-        if err != nil {
-            // error accepting this connection
-            continue
-        }
-        //fmt.Println(conn)
-        go handleConnection(conn)
-    }
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			// error accepting this connection
+			continue
+		}
+		go handleConnection(conn)
+	}
 }
 
-func handleConnection(client net.Conn) {
-    buffer := make([]byte, 4096)
-    client.Read(buffer)
+func write_songs_to_info(peer net.Conn, song_bytes []byte) {
+	// lock
+	song_strs := strings.Split(string(song_bytes[:]), "\n")
+	ip := peer.RemoteAddr().String() + ", "
 
-    buff_str := string(buffer[:])
-    fmt.Printf(buff_str)
-    // fmt.Println(client)
-    // testmsg := "hello"
-    // client.Write([]byte(testmsg + "\n"))
-    // get songs from client
-    // send out info about songs to all hosts
+	// info_file, err := os.OpenFile(INFO_FILE, os.O_APPEND, 0666)
+	info_file, err := os.OpenFile(INFO_FILE, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
+	if err != nil {
+		panic("cant open songs.info file")
+	}
+	defer info_file.Close()
+	for _, s := range song_strs {
+		record := "ID, " + ip + s
+		info_file.WriteString(record + "\n")
+		info_file.Sync()
+	}
+	// unlock
+}
 
+func handleConnection(peer net.Conn) {
 
-    // receive songs from client
+	// info_bytes, err:= ioutil.ReadAll(peer)
+	buff := make([]byte, 4096)
+	bytes_read, err := peer.Read(buff)
+	if err != nil {
+		fmt.Println("error reading song")
+		os.Exit(1)
+	}
 
-    // update info doc (locks)
+	buff = append(buff[:bytes_read])
 
-    // send client (all?) updated doc
+	write_songs_to_info(peer, buff)
+	os.Exit(1)
+
+	// get songs from client
+	// send out info about songs to all hosts
+
+	// receive songs from client
+
+	// update info doc (locks)
+
+	// send client (all?) updated doc
 }
