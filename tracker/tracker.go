@@ -8,6 +8,16 @@ import (
 	// "github.com/gorilla/websocket"
 )
 
+type tsp_header struct {
+	t       byte
+	song_id int
+}
+
+type tsp_msg struct {
+	header tsp_header
+	msg    []byte
+}
+
 const (
 	INFO_FILE = "songs.info"
 	INIT      = 0
@@ -66,14 +76,20 @@ func handleConnection(peer net.Conn) {
 		os.Exit(1)
 	}
 	buff = append(buff[:bytes_read])
+	fmt.Println(string(buff[0]))
 
-	switch buff[:1] {
-	//case 0:
-	//case 1:
-	default:
-		fmt.Println("bad msg header")
-		return
-	}
+	os.Exit(1)
+
+	// switch int(buff[0]) {
+	// case 0:
+	//     fmt.Println("received type INIT")
+	//     break
+	// case 1:
+	// default:
+	//     fmt.Println(buff)
+	//     fmt.Println("bad msg header")
+	//     return
+	// }
 
 	write_songs_to_info(peer, buff)
 
