@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"bytes"
+	// "bytes"
 	"encoding/gob"
 	"fmt"
 	"io/ioutil"
@@ -97,22 +97,31 @@ func get_local_song_info(dir_name string) []string {
  */
 // func send_song_list(tracker net.Conn, songs []os.FileInfo) {
 func send_local_song_info(tracker net.Conn, songs []string) {
-	// Prepare header
-	hdr := tsp_header{t: 0, song_id: 0}
-
-	// fmt.Printf("%T\n", hdr)
-
 	msg_content := ""
 	for _, s := range songs {
 		msg_content += s
 	}
 
-	msg_struct := tsp_msg{header: hdr, msg: []byte(msg_content)}
+	// bin_buff := new(bytes.Buffer)
 
-	bin_buff := new(bytes.Buffer)
+	encoder := gob.NewEncoder(tracker)
 
-	gobobj := gob.NewEncoder(bin_buff)
-	gobobj.Encode(msg_struct)
+	msg_struct := &tsp_msg{
+		header: tsp_header{t: 0, song_id: 0},
+		msg:    []byte(msg_content)}
 
-	tracker.Write(bin_buff.Bytes())
+	// fmt.Println(msg_struct)
+
+	encoder.Encode(msg_struct)
+	fmt.Println(msg_struct)
+	// encoder.Flush()
+	tracker.Close()
+	//slice := hdr
+	//fmt.Printf("%T\n", hdr)
+	// send_buff := append(bin_buff.Bytes(), []byte(msg))
+	//slice = append(hdr, []byte(msg))
+	// tracker.Write(bin_buff.Bytes())
+	// tracker.Write(bin_buff.Bytrs())
+	os.Exit(1)
+	// tracker.Write(send_buff)
 }

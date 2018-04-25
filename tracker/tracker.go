@@ -1,6 +1,8 @@
 package main
 
 import (
+	// "bytes"
+	"encoding/gob"
 	"fmt"
 	"net"
 	"os"
@@ -68,15 +70,35 @@ func write_songs_to_info(peer net.Conn, song_bytes []byte) {
 	// unlock
 }
 
-func handleConnection(peer net.Conn) {
-	buff := make([]byte, 4096)
-	bytes_read, err := peer.Read(buff)
-	if err != nil {
-		fmt.Println("error reading song")
-		os.Exit(1)
-	}
-	buff = append(buff[:bytes_read])
-	fmt.Println(string(buff[0]))
+func handleConnection(peer *net.Conn) {
+	decoder := gob.NewDecoder(peer)
+	in_msg := new(tsp_msg)
+	// in_msg := &tsp_msg{}
+	decoder.Decode(&in_msg)
+
+	fmt.Println(in_msg)
+	// fmt.Printf("Received : %+v", in_msg)
+	peer.Close()
+
+	// buff := make([]byte, 4096)
+	// _, err := peer.Read(buff)
+	// // bytes_read, err := peer.Read(buff)
+	// if err != nil {
+	//     fmt.Println("error reading song")
+	//     os.Exit(1)
+	// }
+	//
+	// tmpbuff := bytes.NewBuffer(buff)
+	//
+	// tmpstruct := new(tsp_msg)
+	//
+	// gobobj := gob.NewDecoder(tmpbuff)
+	// gobobj.Decode(tmpstruct)
+	//
+	// fmt.Println(tmpstruct)
+
+	// buff = append(buff[:bytes_read])
+	// fmt.Println(string(buff[0]))
 
 	os.Exit(1)
 
@@ -91,7 +113,7 @@ func handleConnection(peer net.Conn) {
 	//     return
 	// }
 
-	write_songs_to_info(peer, buff)
+	// write_songs_to_info(peer, buff)
 
 	// get songs from client
 	// send out info about songs to all hosts
