@@ -74,6 +74,6 @@ func send_local_songs(tracker net.Conn, songs []string) {
     for _, s := range songs {
         msg += s + "\n"
     }
-    client.Write([]byte(msg))
+    tracker.Write([]byte(msg))
 }
 

@@ -48,7 +48,8 @@ func handleConnection(client net.Conn) {
     buffer := make([]byte, 4096)
     client.Read(buffer)
 
-    fmt.Printf(buffer)
+    buff_str := string(buffer[:])
+    fmt.Printf(buff_str)
     // fmt.Println(client)
     // testmsg := "hello"
     // client.Write([]byte(testmsg + "\n"))
