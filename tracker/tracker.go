@@ -10,14 +10,14 @@ import (
 	// "github.com/gorilla/websocket"
 )
 
-type tsp_header struct {
-	t       byte
-	song_id int
+type TSP_header struct {
+	Type    byte
+	Song_id int
 }
 
-type tsp_msg struct {
-	header tsp_header
-	msg    []byte
+type TSP_msg struct {
+	Header TSP_header
+	Msg    []byte
 }
 
 const (
@@ -25,6 +25,14 @@ const (
 	INIT      = 0
 	LIST      = 1
 )
+
+func init() {
+	// This type must match exactly what youre going to be using,
+	// down to whether or not its a pointer
+	// FUCK THIS
+	gob.Register(&TSP_header{})
+	gob.Register(&TSP_msg{})
+}
 
 func main() {
 	args := os.Args[:]
@@ -70,58 +78,22 @@ func write_songs_to_info(peer net.Conn, song_bytes []byte) {
 	// unlock
 }
 
-func handleConnection(peer *net.Conn) {
+func handleConnection(peer net.Conn) {
+
 	decoder := gob.NewDecoder(peer)
-	in_msg := new(tsp_msg)
-	// in_msg := &tsp_msg{}
+	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
-
 	fmt.Println(in_msg)
-	// fmt.Printf("Received : %+v", in_msg)
+
+	switch in_msg.Header.Type {
+	case 0:
+		write_songs_to_info(peer, in_msg.Msg)
+	case 1:
+		fmt.Println("case 1 ")
+	default:
+		fmt.Println("didnt work")
+	}
+	// in_hdr := in_msg.Header
 	peer.Close()
-
-	// buff := make([]byte, 4096)
-	// _, err := peer.Read(buff)
-	// // bytes_read, err := peer.Read(buff)
-	// if err != nil {
-	//     fmt.Println("error reading song")
-	//     os.Exit(1)
-	// }
-	//
-	// tmpbuff := bytes.NewBuffer(buff)
-	//
-	// tmpstruct := new(tsp_msg)
-	//
-	// gobobj := gob.NewDecoder(tmpbuff)
-	// gobobj.Decode(tmpstruct)
-	//
-	// fmt.Println(tmpstruct)
-
-	// buff = append(buff[:bytes_read])
-	// fmt.Println(string(buff[0]))
-
 	os.Exit(1)
-
-	// switch int(buff[0]) {
-	// case 0:
-	//     fmt.Println("received type INIT")
-	//     break
-	// case 1:
-	// default:
-	//     fmt.Println(buff)
-	//     fmt.Println("bad msg header")
-	//     return
-	// }
-
-	// write_songs_to_info(peer, buff)
-
-	// get songs from client
-	// send out info about songs to all hosts
-
-	os.Exit(1)
-	// receive songs from client
-
-	// update info doc (locks)
-
-	// send client (all?) updated doc
 }

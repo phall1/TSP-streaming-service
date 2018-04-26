@@ -11,16 +11,22 @@ import (
 	"path"
 )
 
-type tsp_header struct {
+type TSP_header struct {
 	//one byte for type
 	//int song ID
-	t       byte
-	song_id int
+	Type    byte
+	Song_id int
 }
 
-type tsp_msg struct {
-	header tsp_header
-	msg    []byte
+type TSP_msg struct {
+	Header TSP_header
+	Msg    []byte
+}
+
+func init() {
+	// FUCK THIS BUT KEEP IT
+	gob.Register(&TSP_header{})
+	gob.Register(&TSP_msg{})
 }
 
 func main() {
@@ -106,9 +112,7 @@ func send_local_song_info(tracker net.Conn, songs []string) {
 
 	encoder := gob.NewEncoder(tracker)
 
-	msg_struct := &tsp_msg{
-		header: tsp_header{t: 0, song_id: 0},
-		msg:    []byte(msg_content)}
+	msg_struct := &TSP_msg{TSP_header{Type: 0, Song_id: 0}, []byte(msg_content)}
 
 	// fmt.Println(msg_struct)
 
