@@ -1,19 +1,18 @@
 package main
 
 import (
-	"bufio"
-	// "bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/tcnksm/go-input"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"path"
+	// "strings"
 )
 
 type TSP_header struct {
-	//one byte for type
-	//int song ID
 	Type    byte
 	Song_id int
 }
@@ -23,8 +22,14 @@ type TSP_msg struct {
 	Msg    []byte
 }
 
+const (
+	INIT = iota
+	LIST
+	PLAY
+	PAUSE
+)
+
 func init() {
-	// FUCK THIS BUT KEEP IT
 	gob.Register(&TSP_header{})
 	gob.Register(&TSP_msg{})
 }
@@ -36,57 +41,45 @@ func main() {
 		os.Exit(1)
 	}
 
+	become_discoverable(args)
+
+	handle_command(args)
+	// go start serving songs
+	// handle input
+}
+
+/**
+* send local songs to server,
+* tracker other peers now have this ip
+ */
+func become_discoverable(args []string) {
 	songs := get_local_song_info(args[2])
 
 	// Connect to tacker
 	tracker, err := net.Dial("tcp", "localhost:"+args[1])
 	if err != nil {
-		fmt.Println("some error")
+		fmt.Println("Error connecting to tracker")
+		os.Exit(1)
 	}
+	defer tracker.Close()
 
 	send_local_song_info(tracker, songs)
 
-	// Close connection with the tracker
-
-	// SPIN
-
-	// receive remote song list ## STORE IN MEMORY ##
-
-	// wait for user action (play, other stuff)
-
-	for {
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Println("text to send: ")
-		text, _ := reader.ReadString('\n')
-
-		// send to Socket
-		fmt.Fprintf(tracker, text+"\n")
-
-		reply, _ := bufio.NewReader(tracker).ReadString('\n')
-		fmt.Print("Message from server: " + reply)
-	}
+	// tracker_port int = args[2]
 }
 
-func receive_remote_song_info() {
-
-}
-
-/*
- * Returns an string slice
- * for all files(songs) in directory "songs"
+/**
+* Returns an string slice
+* for all files(songs) in directory "songs"
  */
-// func get_songs(dir_name string) []os.FileInfo {
 func get_local_song_info(dir_name string) []string {
-	// Read files from directory
 	info_files, err := ioutil.ReadDir(dir_name)
 	if err != nil {
 		fmt.Println("cant read songs")
 		os.Exit(1)
 	}
 
-	// Extract content of files and add to slice of strings
 	song_info := make([]string, len(info_files))
-
 	for i := 0; i < len(info_files); i++ {
 		if path.Ext(info_files[i].Name()) != ".info" {
 			continue
@@ -97,35 +90,86 @@ func get_local_song_info(dir_name string) []string {
 	return song_info
 }
 
-/*
- * send this peers song list to the
- * tracker server
+/**
+* send this peers song list to the
+* tracker server using gobs to transfer structs
  */
-// func send_song_list(tracker net.Conn, songs []os.FileInfo) {
 func send_local_song_info(tracker net.Conn, songs []string) {
 	msg_content := ""
 	for _, s := range songs {
 		msg_content += s
 	}
 
-	// bin_buff := new(bytes.Buffer)
-
 	encoder := gob.NewEncoder(tracker)
-
 	msg_struct := &TSP_msg{TSP_header{Type: 0, Song_id: 0}, []byte(msg_content)}
-
-	// fmt.Println(msg_struct)
-
 	encoder.Encode(msg_struct)
-	fmt.Println(msg_struct)
-	// encoder.Flush()
-	tracker.Close()
-	//slice := hdr
-	//fmt.Printf("%T\n", hdr)
-	// send_buff := append(bin_buff.Bytes(), []byte(msg))
-	//slice = append(hdr, []byte(msg))
-	// tracker.Write(bin_buff.Bytes())
-	// tracker.Write(bin_buff.Bytrs())
-	os.Exit(1)
-	// tracker.Write(send_buff)
 }
+
+/**
+* handle input command from the user
+* LIST - get song list from peers
+* PLAY <song id> - play song
+* PAUSE - pauses playing of song (buffering continues)
+* STOP - stop streaming song
+* QUIT - <--
+ */
+func handle_command(args []string) {
+	ui := &input.UI{
+		Writer: os.Stdout,
+		Reader: os.Stdin,
+	}
+
+	query := "Select option"
+	cmd, err := ui.Select(query, []string{"LIST", "PLAY", "PAUSE", "QUIT"}, &input.Options{
+		Loop: true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(cmd)
+	os.Exit(1)
+
+	/*
+		// read command
+
+		hdr := new(TSP_header)
+
+		switch strings.ToUpper(cmd) {
+		case "LIST":
+			// get list from server
+			hdr.Type = LIST
+			send_list_request(hdr) // TSP_header error
+			break
+		case "PLAY":
+			hdr.Type = PLAY
+			break
+		case "PAUSE":
+			hdr.Type = PAUSE
+			break
+		case "QUIT":
+			// quit
+		default:
+			fmt.Println("invalid command")
+		}
+	*/
+}
+
+func send_list_request(hdr TSP_header, args []string) { // parameter error
+	tracker, err := net.Dial("tcp", "localhost:"+args[1])
+	if err != nil {
+		fmt.Println("Error connecting to tracker")
+		os.Exit(1)
+	}
+	defer tracker.Close()
+
+	msg_content := ""
+	encoder := gob.NewEncoder(tracker)
+	msg_struct := &TSP_msg{TSP_header{Type: 0, Song_id: 0}, []byte(msg_content)}
+	encoder.Encode(msg_struct)
+}
+
+/*
+func server_side(peer net.Conn) {
+
+}
+*/
