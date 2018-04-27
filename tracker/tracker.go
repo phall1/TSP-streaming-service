@@ -62,7 +62,8 @@ func main() {
  * assigns ID's to the new songs
  */
 func write_songs_to_info(peer net.Conn, song_bytes []byte) {
-	// lock
+	// TODO: lock
+	// TODO: assign id numbers properly
 	song_strs := strings.Split(string(song_bytes[:]), "\n")
 	ip := peer.RemoteAddr().String() + ", "
 

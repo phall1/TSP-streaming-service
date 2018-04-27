@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"github.com/tcnksm/go-input"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"path"
-	// "strings"
+	"strings"
 )
 
 type TSP_header struct {
@@ -123,14 +122,10 @@ func handle_command(args []string) int {
 		Writer: os.Stdout,
 		Reader: os.Stdin,
 	}
-
 	query := "Select option"
-	cmd, err := ui.Select(query, []string{"LIST", "PLAY", "PAUSE", "QUIT"}, &input.Options{
+	cmd, _ := ui.Select(query, []string{"LIST", "PLAY", "PAUSE", "QUIT"}, &input.Options{
 		Loop: true,
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	hdr := new(TSP_header)
 
@@ -144,12 +139,16 @@ func handle_command(args []string) int {
 	case "PLAY":
 		hdr.Type = PLAY
 		fmt.Println("PLAY")
+		// go play song
 	case "PAUSE":
 		hdr.Type = PAUSE
 		fmt.Println("PAUSE")
+		// find song playing and stop if (in the other goroutine, use
+		// channesl)
 	case "QUIT":
 		hdr.Type = QUIT
 		fmt.Println("QUIT")
+		// close all connections and quit
 		return -1
 	default:
 		fmt.Println("invalid command")
@@ -168,7 +167,6 @@ func send_list_request(hdr TSP_header, args []string) net.Conn { // parameter er
 		fmt.Println("Error connecting to tracker")
 		os.Exit(1)
 	}
-	// defer tracker.Close()
 
 	msg_content := ""
 	encoder := gob.NewEncoder(tracker)
@@ -177,12 +175,31 @@ func send_list_request(hdr TSP_header, args []string) net.Conn { // parameter er
 	return tracker
 }
 
+/**
+ * receives master list from tracker
+ */
 func receive_master_list(tracker net.Conn) {
 	defer tracker.Close()
 	decoder := gob.NewDecoder(tracker)
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
 
+	print_master_list(string(in_msg.Msg[:]))
+}
+
+/**
+ * prints master list received from tracker
+ */
+func print_master_list(list string) {
 	// TODO: format output nicely
-	fmt.Println(string(in_msg.Msg[:]))
+	rows := strings.Split(list, "\n")
+	for _, r := range rows {
+		r = strings.Replace(r, ", ", "\t", -1)
+		// row_slice := strings.Split(r, ",")
+		// for _, e := range row_slice {
+		//     fmt.Printf("%")
+		// }
+		//
+		fmt.Println(r)
+	}
 }
