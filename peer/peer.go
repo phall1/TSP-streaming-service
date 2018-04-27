@@ -61,7 +61,7 @@ func become_discoverable(args []string) {
 	songs := get_local_song_info(args[2])
 
 	// Connect to tacker
-	tracker, err := net.Dial("tcp", "localhost:"+args[1])
+	tracker, err := net.Dial("tcp", "10.41.6.197:"+args[1])
 	if err != nil {
 		fmt.Println("Error connecting to tracker")
 		os.Exit(1)
