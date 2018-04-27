@@ -29,6 +29,8 @@ const (
 	QUIT
 )
 
+const TRACKER_IP = "172.17.31.37:"
+
 func init() {
 	gob.Register(&TSP_header{})
 	gob.Register(&TSP_msg{})
@@ -61,7 +63,7 @@ func become_discoverable(args []string) {
 	songs := get_local_song_info(args[2])
 
 	// Connect to tacker
-	tracker, err := net.Dial("tcp", "172.17.31.37:"+args[1])
+	tracker, err := net.Dial("tcp", TRACKER_IP+args[1])
 	if err != nil {
 		fmt.Println("Error connecting to tracker")
 		os.Exit(1)
@@ -198,7 +200,7 @@ func play_song(hdr TSP_header, ip string, song_id int) {
 * available on the network
  */
 func send_list_request(hdr TSP_header, args []string) net.Conn { // parameter error
-	tracker, err := net.Dial("tcp", "localhost:"+args[1])
+	tracker, err := net.Dial("tcp", TRACKER_IP+args[1])
 	if err != nil {
 		fmt.Println("Error connecting to tracker")
 		os.Exit(1)
