@@ -24,6 +24,7 @@ const (
 )
 
 const INFO_FILE = "songs.info"
+const MAX_SONGS = 1000
 
 func init() {
 	gob.Register(&TSP_header{})
@@ -65,20 +66,15 @@ func write_songs_to_info(peer net.Conn, song_bytes []byte) {
 	// TODO: assign id numbers properly
 	song_strs := strings.Split(string(song_bytes[:]), "\n")
 	ip := peer.RemoteAddr().String() + ", "
-
-	info_file, err := os.OpenFile(INFO_FILE, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
-	if err != nil {
-		panic("cant open songs.info file")
-	}
-	defer info_file.Close()
-
+	info := make([]string, MAX_SONGS)
+	i := 0
 	for _, s := range song_strs {
 		if s == "" {
 			continue
 		}
-		record := "ID, " + ip + s
-		info_file.WriteString(record + "\n")
-		info_file.Sync()
+		record := ip + s
+		info[0] = record
+		i++
 	}
 	// unlock
 }
