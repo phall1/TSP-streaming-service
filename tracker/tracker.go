@@ -84,6 +84,26 @@ func write_songs_to_info(peer net.Conn, song_bytes []byte) {
 }
 
 /**
+ * Get local IP
+ */
+func GetLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""	
+	}
+	
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()	
+			}	
+		}	
+	}	
+	return ""
+}
+
+
+/**
  * handles new connections
  * either takes the new peer's song list,
  * or sends back the master info file
