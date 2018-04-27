@@ -140,6 +140,7 @@ func handle_command(args []string) int {
 		hdr.Type = PLAY
 		fmt.Println("PLAY")
 		// go play song
+		play_song(*hdr, "localhost:6969", 69)
 	case "PAUSE":
 		hdr.Type = PAUSE
 		fmt.Println("PAUSE")
@@ -157,9 +158,26 @@ func handle_command(args []string) int {
 	return 0
 }
 
+func ask_for_id(list []string) {
+
+}
+
+func play_song(hdr TSP_header, ip string, song_id int) {
+	peer, err := net.Dial("tcp", ip)
+	if err != nil {
+		fmt.Println("Error connecting to peer")
+		return
+	}
+
+	tmp_msg := "play song here"
+	encoder := gob.NewEncoder(peer)
+	msg_struct := &TSP_msg{hdr, []byte(tmp_msg)}
+	encoder.Encode(msg_struct)
+}
+
 /**
- * sends a request for list of songs
- * available on the network
+* sends a request for list of songs
+* available on the network
  */
 func send_list_request(hdr TSP_header, args []string) net.Conn { // parameter error
 	tracker, err := net.Dial("tcp", "localhost:"+args[1])
@@ -176,7 +194,7 @@ func send_list_request(hdr TSP_header, args []string) net.Conn { // parameter er
 }
 
 /**
- * receives master list from tracker
+* receives master list from tracker
  */
 func receive_master_list(tracker net.Conn) {
 	defer tracker.Close()
@@ -188,7 +206,7 @@ func receive_master_list(tracker net.Conn) {
 }
 
 /**
- * prints master list received from tracker
+* prints master list received from tracker
  */
 func print_master_list(list string) {
 	// TODO: format output nicely
