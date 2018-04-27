@@ -27,6 +27,7 @@ const (
 	LIST
 	PLAY
 	PAUSE
+	QUIT
 )
 
 func init() {
@@ -43,9 +44,13 @@ func main() {
 
 	become_discoverable(args)
 
-	handle_command(args)
 	// go start serving songs
-	// handle input
+
+	for {
+		if handle_command(args) < 0 {
+			break
+		}
+	}
 }
 
 /**
@@ -113,7 +118,7 @@ func send_local_song_info(tracker net.Conn, songs []string) {
 * STOP - stop streaming song
 * QUIT - <--
  */
-func handle_command(args []string) {
+func handle_command(args []string) int {
 	ui := &input.UI{
 		Writer: os.Stdout,
 		Reader: os.Stdin,
@@ -126,50 +131,58 @@ func handle_command(args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(cmd)
-	os.Exit(1)
 
-	/*
-		// read command
+	hdr := new(TSP_header)
 
-		hdr := new(TSP_header)
-
-		switch strings.ToUpper(cmd) {
-		case "LIST":
-			// get list from server
-			hdr.Type = LIST
-			send_list_request(hdr) // TSP_header error
-			break
-		case "PLAY":
-			hdr.Type = PLAY
-			break
-		case "PAUSE":
-			hdr.Type = PAUSE
-			break
-		case "QUIT":
-			// quit
-		default:
-			fmt.Println("invalid command")
-		}
-	*/
+	switch cmd {
+	case "LIST":
+		// get list from server
+		hdr.Type = LIST
+		fmt.Println("LIST")
+		tracker := send_list_request(*hdr, args) // TSP_header error
+		receive_master_list(tracker)
+	case "PLAY":
+		hdr.Type = PLAY
+		fmt.Println("PLAY")
+	case "PAUSE":
+		hdr.Type = PAUSE
+		fmt.Println("PAUSE")
+	case "QUIT":
+		hdr.Type = QUIT
+		fmt.Println("QUIT")
+		return -1
+	default:
+		fmt.Println("invalid command")
+	}
+	//fmt.Println("after switch")
+	return 0
 }
 
-func send_list_request(hdr TSP_header, args []string) { // parameter error
+/**
+ * sends a request for list of songs
+ * available on the network
+ */
+func send_list_request(hdr TSP_header, args []string) net.Conn { // parameter error
 	tracker, err := net.Dial("tcp", "localhost:"+args[1])
 	if err != nil {
 		fmt.Println("Error connecting to tracker")
 		os.Exit(1)
 	}
-	defer tracker.Close()
+	// defer tracker.Close()
 
 	msg_content := ""
 	encoder := gob.NewEncoder(tracker)
-	msg_struct := &TSP_msg{TSP_header{Type: 0, Song_id: 0}, []byte(msg_content)}
+	msg_struct := &TSP_msg{TSP_header{Type: 1}, []byte(msg_content)}
 	encoder.Encode(msg_struct)
+	return tracker
 }
 
-/*
-func server_side(peer net.Conn) {
+func receive_master_list(tracker net.Conn) {
+	defer tracker.Close()
+	decoder := gob.NewDecoder(tracker)
+	in_msg := new(TSP_msg)
+	decoder.Decode(&in_msg)
 
+	// TODO: format output nicely
+	fmt.Println(string(in_msg.Msg[:]))
 }
-*/

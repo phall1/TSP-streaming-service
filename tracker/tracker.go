@@ -93,9 +93,6 @@ func handleConnection(peer net.Conn) {
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
 
-	fmt.Println(INIT)
-	fmt.Println(in_msg.Header.Type)
-
 	switch in_msg.Header.Type {
 	case INIT:
 		fmt.Println("INIT")
@@ -118,7 +115,6 @@ func send_info_file(peer net.Conn) {
 	if err != nil {
 		panic("cant open songs.info file")
 	}
-	fmt.Println(info_file)
 
 	encoder := gob.NewEncoder(peer)
 	msg_struct := &TSP_msg{TSP_header{Type: 1}, []byte(info_file)}
