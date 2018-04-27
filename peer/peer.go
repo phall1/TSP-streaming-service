@@ -288,19 +288,3 @@ func play_mp3(mp3_file string) {
 	return nil
 }
 */
-/**
- * prints master list received from tracker
- */
-func print_master_list(list string) {
-	// TODO: format output nicely
-	rows := strings.Split(list, "\n")
-	for _, r := range rows {
-		r = strings.Replace(r, ", ", "\t", -1)
-		// row_slice := strings.Split(r, ",")
-		// for _, e := range row_slice {
-		//     fmt.Printf("%")
-		// }
-		//
-		fmt.Println(r)
-	}
-}
