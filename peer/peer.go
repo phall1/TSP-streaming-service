@@ -44,6 +44,7 @@ func main() {
 	become_discoverable(args)
 
 	// go start serving songs
+	go serve_songs(args)
 
 	for {
 		if handle_command(args) < 0 {
@@ -71,6 +72,27 @@ func become_discoverable(args []string) {
 
 	// tracker_port int = args[2]
 }
+
+/**
+ *
+ */
+func serve_songs(args []string) {
+	server_ln, err := Listen("tcp", ":" + args[1])
+	if err != nil {
+		panic(err)
+	}
+	defer server_ln.Close()
+
+	for {
+		client, err := server_ln.Accept()
+		if err != nil {
+			continue
+		}
+		go recevie_message(server_ln)
+		//go receive_mp3()
+	}
+}
+
 
 /**
 * Returns an string slice
@@ -186,6 +208,54 @@ func receive_master_list(tracker net.Conn) {
 
 	print_master_list(string(in_msg.Msg[:]))
 }
+
+/**
+ * This receives message slice and creates a file with contents
+ */
+func receive_message(server_ln net.Conn) {
+	//defer server_ln.Close()
+	 decoder := gob.NewDecoder(server_ln)
+	 in_msg := new(TSP_msg)
+	 decoder.Decode(&in_msg)
+	 // To change for music we will create file and read contents to file
+	 // Or we can alter the play_mp3 file to directly read the contents
+	 // Definetly the second one but need to figure it out
+	 //fmt.Println() 
+	 fmt.Println(in_msg.Header.Type)
+ }
+
+/**
+ * Receive and play music  
+ */
+//func play_mp3(peer net.Conn, mp3_file []byte) { //as the bytes are being
+//read in use the Read() func
+func play_mp3(mp3_file string) {
+	f, err := os.Open(mp3_file);
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	
+	d, err := mp3.NewDecoder(f)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+
+	p, err := oto.NewPlayer(d.SampleRate(), 2, 2, 8192)
+	if err != nil {
+		return err
+	}
+	defer p.Close()
+
+	fmt.Printf("Length: %d[bytes]\n", d.Length())
+
+	if _, err := io.Copy(p, d); err != nil {
+		return err
+	}
+	return nil
+}
+
 
 /**
  * prints master list received from tracker
