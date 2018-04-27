@@ -60,7 +60,6 @@ func main() {
 func become_discoverable(args []string) {
 	songs := get_local_song_info(args[2])
 
-	// Connect to tacker
 	tracker, err := net.Dial("tcp", "10.41.6.197:"+args[1])
 	if err != nil {
 		fmt.Println("Error connecting to tracker")
@@ -69,8 +68,6 @@ func become_discoverable(args []string) {
 	defer tracker.Close()
 
 	send_local_song_info(tracker, songs)
-
-	// tracker_port int = args[2]
 }
 
 /**
@@ -175,7 +172,6 @@ func handle_command(args []string) int {
 	default:
 		fmt.Println("invalid command")
 	}
-	//fmt.Println("after switch")
 	return 0
 }
 
@@ -243,10 +239,28 @@ func receive_message(server_ln net.Conn) {
 }
 
 /**
+ * prints master list received from tracker
+ */
+func print_master_list(list string) {
+	// TODO: format output nicely
+	rows := strings.Split(list, "\n")
+	for _, r := range rows {
+		r = strings.Replace(r, ", ", "\t", -1)
+		// row_slice := strings.Split(r, ",")
+		// for _, e := range row_slice {
+		//     fmt.Printf("%")
+		// }
+		//
+		fmt.Println(r)
+	}
+}
+
+/**
  * Receive and play music
  */
 //func play_mp3(peer net.Conn, mp3_file []byte) { //as the bytes are being
 //read in use the Read() func
+/*
 func play_mp3(mp3_file string) {
 	f, err := os.Open(mp3_file)
 	if err != nil {
@@ -273,20 +287,4 @@ func play_mp3(mp3_file string) {
 	}
 	return nil
 }
-
-/**
- * prints master list received from tracker
- */
-func print_master_list(list string) {
-	// TODO: format output nicely
-	rows := strings.Split(list, "\n")
-	for _, r := range rows {
-		r = strings.Replace(r, ", ", "\t", -1)
-		// row_slice := strings.Split(r, ",")
-		// for _, e := range row_slice {
-		//     fmt.Printf("%")
-		// }
-		//
-		fmt.Println(r)
-	}
-}
+*/

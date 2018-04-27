@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/gob"
 	"fmt"
-	"io/ioutil"
+	// "io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -13,6 +13,7 @@ type TSP_header struct {
 	Type    byte
 	Song_id int
 }
+
 type TSP_msg struct {
 	Header TSP_header
 	Msg    []byte
@@ -23,8 +24,9 @@ const (
 	LIST
 )
 
-const INFO_FILE = "songs.info"
 const MAX_SONGS = 1000
+
+var info = make([]string, 0)
 
 func init() {
 	gob.Register(&TSP_header{})
@@ -69,31 +71,9 @@ func main() {
 			fmt.Println("error accepting conn")
 			continue
 		}
+		fmt.Println("handle_connection")
 		go handleConnection(peer)
 	}
-}
-
-/**
- * takes new peer's song list, and adds their songs
- * to the info file, with the peers IP addess, and
- * assigns ID's to the new songs
- */
-func get_info_from_peer(peer net.Conn, song_bytes []byte) []string {
-	// TODO: lock
-	// TODO: assign id numbers properly
-	song_strs := strings.Split(string(song_bytes[:]), "\n")
-	ip := peer.RemoteAddr().String() + ", "
-	info := make([]string, 0)
-	for _, s := range song_strs {
-		if s == "" {
-			continue
-		}
-		record := "ID, " + ip + s
-		info = append(info, record)
-	}
-	fmt.Println(info[0])
-	// unlock
-	return info
 }
 
 /**
@@ -109,7 +89,7 @@ func handleConnection(peer net.Conn) {
 	switch in_msg.Header.Type {
 	case INIT:
 		fmt.Println("INIT")
-		info := get_info_from_peer(peer, in_msg.Msg)
+		get_info_from_peer(peer, in_msg.Msg)
 	case LIST:
 		fmt.Println("INFO")
 		send_info_file(peer)
@@ -120,16 +100,33 @@ func handleConnection(peer net.Conn) {
 }
 
 /**
+ * takes new peer's song list, and adds their songs
+ * to the info file, with the peers IP addess, and
+ * assigns ID's to the new songs
+ */
+func get_info_from_peer(peer net.Conn, song_bytes []byte) {
+	// TODO: lock
+	// TODO: assign id numbers properly
+	song_strs := strings.Split(string(song_bytes[:]), "\n")
+	ip := peer.RemoteAddr().String() + ", "
+	for _, s := range song_strs {
+		if s == "" {
+			continue
+		}
+		record := "ID, " + ip + s
+		info = append(info, record)
+	}
+	fmt.Println(info)
+	// unlock
+}
+
+/**
  * send the master song info file to the peer
  * that requested it
  */
 func send_info_file(peer net.Conn) {
-	info_file, err := ioutil.ReadFile(INFO_FILE)
-	if err != nil {
-		panic("cant open songs.info file")
-	}
-
+	info_msg := strings.Join(info, "\n")
 	encoder := gob.NewEncoder(peer)
-	msg_struct := &TSP_msg{TSP_header{Type: 1}, []byte(info_file)}
+	msg_struct := &TSP_msg{TSP_header{Type: 1}, []byte(info_msg)}
 	encoder.Encode(msg_struct)
 }
