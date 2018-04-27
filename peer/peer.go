@@ -61,7 +61,7 @@ func become_discoverable(args []string) {
 	songs := get_local_song_info(args[2])
 
 	// Connect to tacker
-	tracker, err := net.Dial("tcp", "10.41.6.197:"+args[1])
+	tracker, err := net.Dial("tcp", "172.17.31.37:"+args[1])
 	if err != nil {
 		fmt.Println("Error connecting to tracker")
 		os.Exit(1)
@@ -77,7 +77,7 @@ func become_discoverable(args []string) {
  *
  */
 func serve_songs(args []string) {
-	server_ln, err := Listen("tcp", ":"+args[1])
+	server_ln, err := net.Listen("tcp", ":"+args[1])
 	if err != nil {
 		panic(err)
 	}
@@ -88,7 +88,7 @@ func serve_songs(args []string) {
 		if err != nil {
 			continue
 		}
-		go recevie_message(server_ln)
+		go receive_message(client)
 		//go receive_mp3()
 	}
 }
@@ -244,7 +244,6 @@ func receive_message(server_ln net.Conn) {
 
 /**
  * Receive and play music
- */
 //func play_mp3(peer net.Conn, mp3_file []byte) { //as the bytes are being
 //read in use the Read() func
 func play_mp3(mp3_file string) {
@@ -273,6 +272,7 @@ func play_mp3(mp3_file string) {
 	}
 	return nil
 }
+*/
 
 /**
  * prints master list received from tracker
