@@ -31,15 +31,32 @@ func init() {
 	gob.Register(&TSP_msg{})
 }
 
+func GetLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
+}
+
 func main() {
 	args := os.Args[:]
 	if len(args) != 2 {
 		fmt.Println("Usage: ", args[0], "<port>")
 		os.Exit(1)
 	}
+	fmt.Println(GetLocalIP())
 
 	// setup server socket
-	ln, err := net.Listen("tcp", ":"+args[1])
+	ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
 	if err != nil {
 		panic(err)
 	}
@@ -61,43 +78,23 @@ func main() {
  * to the info file, with the peers IP addess, and
  * assigns ID's to the new songs
  */
-func write_songs_to_info(peer net.Conn, song_bytes []byte) {
+func get_info_from_peer(peer net.Conn, song_bytes []byte) []string {
 	// TODO: lock
 	// TODO: assign id numbers properly
 	song_strs := strings.Split(string(song_bytes[:]), "\n")
 	ip := peer.RemoteAddr().String() + ", "
-	info := make([]string, MAX_SONGS)
-	i := 0
+	info := make([]string, 0)
 	for _, s := range song_strs {
 		if s == "" {
 			continue
 		}
-		record := ip + s
-		info[0] = record
-		i++
+		record := "ID, " + ip + s
+		info = append(info, record)
 	}
+	fmt.Println(info[0])
 	// unlock
+	return info
 }
-
-/**
- * Get local IP
- */
-func GetLocalIP() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return ""	
-	}
-	
-	for _, address := range addrs {
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()	
-			}	
-		}	
-	}	
-	return ""
-}
-
 
 /**
  * handles new connections
@@ -112,7 +109,7 @@ func handleConnection(peer net.Conn) {
 	switch in_msg.Header.Type {
 	case INIT:
 		fmt.Println("INIT")
-		write_songs_to_info(peer, in_msg.Msg)
+		info := get_info_from_peer(peer, in_msg.Msg)
 	case LIST:
 		fmt.Println("INFO")
 		send_info_file(peer)
