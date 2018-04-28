@@ -25,15 +25,43 @@ const (
 	INIT = iota
 	LIST
 	PLAY
-	PAUSE
 	QUIT
 )
 
-const TRACKER_IP = "172.17.31.37:"
+//const TRACKER_IP = "172.17.31.37:"
+//const TRACKER_IP = "10.41.6.197:"
+const TRACKER_IP = "172.17.92.155:"
+
+var master_list = make([]string, 0) // Everytime a peer joins we are sending the local list to
+var local_list = make([]string, 0)
+
+// tracker to update master list, we then
+// have to send updated list to all peers
+// without have to request it so all songs
+// will be available? or will user always
+// lsit before playing? cause list updates
+// songs think so this wouldnt be an
+// issue.
 
 func init() {
 	gob.Register(&TSP_header{})
 	gob.Register(&TSP_msg{})
+}
+
+func GetLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	// Check the address type and if it is not a loopback then display it
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
 }
 
 func main() {
@@ -161,14 +189,19 @@ func handle_command(args []string) int {
 		hdr.Type = PLAY
 		fmt.Println("PLAY")
 		// go play song
+		//ip = song_list[desired_song].IP + ":" + args[1]
+		//play_song(*hdr, ip, 69)
 		play_song(*hdr, "localhost:6969", 69)
-	case "PAUSE":
-		hdr.Type = PAUSE
-		fmt.Println("PAUSE")
-		// find song playing and stop if (in the other goroutine, use
-		// channesl)
+	//case "PAUSE":
+	//	hdr.Type = PAUSE
+	//	fmt.Println("PAUSE")
+	// find song playing and stop if (in the other goroutine, use
+	// channesl)
 	case "QUIT":
 		hdr.Type = QUIT
+		//tracker := send_list_request(*hdr, args)
+		// We should mimic the init process by sending the local list
+		send_quit(*hdr, args)
 		fmt.Println("QUIT")
 		// close all connections and quit
 		return -1
@@ -211,6 +244,22 @@ func send_list_request(hdr TSP_header, args []string) net.Conn { // parameter er
 	msg_struct := &TSP_msg{TSP_header{Type: 1}, []byte(msg_content)}
 	encoder.Encode(msg_struct)
 	return tracker
+}
+
+/**
+ * Send quit
+ */
+func send_quit(hdr TSP_header, args []string) {
+	tracker, err := net.Dial("tcp", TRACKER_IP+args[1])
+	if err != nil {
+		fmt.Println("ERROR: quitting")
+		os.Exit(1)
+	}
+	defer tracker.Close()
+	msg_content := ""
+	encoder := gob.NewEncoder(tracker)
+	msg_struct := &TSP_msg{TSP_header{Type: QUIT}, []byte(msg_content)}
+	encoder.Encode(msg_struct)
 }
 
 /**
@@ -258,6 +307,7 @@ func print_master_list(list string) {
 	}
 }
 
+/**
 func GetLocalIP() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -273,7 +323,7 @@ func GetLocalIP() string {
 	}
 	return ""
 }
-
+*/
 /**
  * Receive and play music
 //func play_mp3(peer net.Conn, mp3_file []byte) { //as the bytes are being
