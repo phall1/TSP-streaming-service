@@ -189,10 +189,12 @@ func handle_command(args []string) int {
 	case "PLAY":
 		hdr.Type = PLAY
 		fmt.Println("PLAY")
-		// go play song
-		//ip = song_list[desired_song].IP + ":" + args[1]
-		//play_song(*hdr, ip, 69)
-		play_song(*hdr, "localhost:6969", 69)
+		id := get_song_selection()
+		// TODO: ask user for id from user (return it & peerIP)
+		// hdr.Song_id, peer_ip := get_song_id()
+		send_request(*hdr, peer_ip+args[1])
+		fmt.Println("this is the id: " + id)
+		// play_song(*hdr, "localhost:6969", 69)
 	case "PAUSE":
 		hdr.Type = PAUSE
 		fmt.Println("PAUSE")
@@ -210,7 +212,30 @@ func handle_command(args []string) int {
 	return 0
 }
 
-func ask_for_id(list []string) {
+func get_song_selection() (id string) {
+	songs := strings.Split(master_list, "\n")
+
+	ui := &input.UI{
+		Writer: os.Stdout,
+		Reader: os.Stdin,
+	}
+	query := "Select a song"
+	// need a string slide of the names of songs
+	id, _ := ui.Ask(query, &input.Options{
+		ValidateFunc: func(s string) error {
+			for _, s := range songs {
+				if strings.Contains(s, id) {
+					return nil
+				}
+			}
+			return err
+		},
+		Loop: true,
+	})
+	return id
+}
+
+func ask_for_id() {
 
 }
 
@@ -251,6 +276,7 @@ func receive_master_list(tracker net.Conn) {
 	decoder.Decode(&in_msg)
 
 	master_list = string(in_msg.Msg[:])
+	fmt.Println(master_list)
 	print_master_list(master_list)
 }
 
