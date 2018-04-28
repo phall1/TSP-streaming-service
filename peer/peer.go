@@ -33,7 +33,8 @@ const (
 //const TRACKER_IP = "10.41.6.197:"
 const TRACKER_IP = "172.17.92.155:"
 
-var master_list = make([]string, 0) // Everytime a peer joins we are sending the local list to
+// var master_list = make([]string, 0) // Everytime a peer joins we are sending the local list to
+var master_list string
 var local_list = make([]string, 0)
 
 // tracker to update master list, we then
@@ -230,14 +231,14 @@ func play_song(hdr TSP_header, ip string, song_id int) {
 	encoder.Encode(msg_struct)
 }
 
-func send_request(hdr TSP_header, args []string, dest_ip string) (conn net.Conn) {
+func send_request(hdr TSP_header, dest_ip string) (conn net.Conn) {
 	conn, err := net.Dial("tcp", dest_ip)
 	if err != nil {
 		fmt.Println("error connecting to " + dest_ip)
 		os.Exit(1)
 	}
 	msg_content := ""
-	encoder := gob.NewEncoder(tracker)
+	encoder := gob.NewEncoder(conn)
 	msg_struct := &TSP_msg{hdr, []byte(msg_content)}
 	encoder.Encode(msg_struct)
 	return
@@ -287,8 +288,8 @@ func receive_master_list(tracker net.Conn) {
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
 
-	master_list = in_msg.Msg[:]
-	print_master_list(string(in_msg.Msg[:]))
+	master_list = string(in_msg.Msg[:])
+	print_master_list(master_list)
 }
 
 /**
