@@ -139,7 +139,8 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 func remove_songs(peer net.Conn) {
 	// TODO: lock
 	// TODO: assign id numbers properly
-	ip := peer.RemoteAddr().String()
+	ip := strings.TrimRight(peer.RemoteAddr().String(), ":")
+
 	/*
 		for _, s := range info {
 			if strings.Contains(ip) {
