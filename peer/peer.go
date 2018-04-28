@@ -26,6 +26,7 @@ const (
 	LIST
 	PLAY
 	QUIT
+	PAUSE
 )
 
 //const TRACKER_IP = "172.17.31.37:"
@@ -192,9 +193,9 @@ func handle_command(args []string) int {
 		//ip = song_list[desired_song].IP + ":" + args[1]
 		//play_song(*hdr, ip, 69)
 		play_song(*hdr, "localhost:6969", 69)
-	//case "PAUSE":
-	//	hdr.Type = PAUSE
-	//	fmt.Println("PAUSE")
+	case "PAUSE":
+		hdr.Type = PAUSE
+		fmt.Println("PAUSE")
 	// find song playing and stop if (in the other goroutine, use
 	// channesl)
 	case "QUIT":
@@ -272,6 +273,7 @@ func receive_master_list(tracker net.Conn) {
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
 
+	master_list = in_msg.Msg[:]
 	print_master_list(string(in_msg.Msg[:]))
 }
 
@@ -286,7 +288,6 @@ func receive_message(server_ln net.Conn) {
 	// To change for music we will create file and read contents to file
 	// Or we can alter the play_mp3 file to directly read the contents
 	// Definetly the second one but need to figure it out
-	//fmt.Println()
 	fmt.Println(in_msg.Header.Type)
 }
 
