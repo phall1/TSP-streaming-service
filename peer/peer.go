@@ -182,11 +182,9 @@ func handle_command(args []string) int {
 
 	switch cmd {
 	case "LIST":
-		// get list from server
 		hdr.Type = LIST
 		fmt.Println("LIST")
-		// tracker := send_list_request(*hdr, args) // TSP_header error
-		tracker := send_request(*hdr, TRACKER_IP+":"+args[1])
+		tracker := send_request(*hdr, TRACKER_IP+args[1])
 		receive_master_list(tracker)
 	case "PLAY":
 		hdr.Type = PLAY
@@ -202,9 +200,7 @@ func handle_command(args []string) int {
 	// channesl)
 	case "QUIT":
 		hdr.Type = QUIT
-		//tracker := send_list_request(*hdr, args)
-		// We should mimic the init process by sending the local list
-		send_quit(*hdr, args)
+		_ = send_request(*hdr, TRACKER_IP+args[1])
 		fmt.Println("QUIT")
 		// close all connections and quit
 		return -1
@@ -245,40 +241,6 @@ func send_request(hdr TSP_header, dest_ip string) (conn net.Conn) {
 }
 
 /**
-* sends a request for list of songs
-* available on the network
- */
-func send_list_request(hdr TSP_header, args []string) net.Conn { // parameter error
-	tracker, err := net.Dial("tcp", TRACKER_IP+args[1])
-	if err != nil {
-		fmt.Println("Error connecting to tracker")
-		os.Exit(1)
-	}
-
-	msg_content := ""
-	encoder := gob.NewEncoder(tracker)
-	msg_struct := &TSP_msg{TSP_header{Type: 1}, []byte(msg_content)}
-	encoder.Encode(msg_struct)
-	return tracker
-}
-
-/**
- * Send quit
- */
-func send_quit(hdr TSP_header, args []string) {
-	tracker, err := net.Dial("tcp", TRACKER_IP+args[1])
-	if err != nil {
-		fmt.Println("ERROR: quitting")
-		os.Exit(1)
-	}
-	defer tracker.Close()
-	msg_content := ""
-	encoder := gob.NewEncoder(tracker)
-	msg_struct := &TSP_msg{TSP_header{Type: QUIT}, []byte(msg_content)}
-	encoder.Encode(msg_struct)
-}
-
-/**
 * receives master list from tracker
 * prints master list received from tracker
  */
@@ -314,11 +276,6 @@ func print_master_list(list string) {
 	rows := strings.Split(list, "\n")
 	for _, r := range rows {
 		r = strings.Replace(r, ", ", "\t", -1)
-		// row_slice := strings.Split(r, ",")
-		// for _, e := range row_slice {
-		//     fmt.Printf("%")
-		// }
-		//
 		fmt.Println(r)
 	}
 }
