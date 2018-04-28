@@ -258,6 +258,22 @@ func print_master_list(list string) {
 	}
 }
 
+func GetLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	// Check the address type and if it is not a loopback then display it
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
+}
+
 /**
  * Receive and play music
 //func play_mp3(peer net.Conn, mp3_file []byte) { //as the bytes are being
@@ -285,6 +301,37 @@ func play_mp3(mp3_file string) {
 	fmt.Printf("Length: %d[bytes]\n", d.Length())
 
 	if _, err := io.Copy(p, d); err != nil {
+		return err
+	}
+	return nil
+}
+*/
+
+/*
+func play_mp3(streaming_peer net.Conn, mp3_bytes []bytes) {
+//	f, err := os.Open(mp3_file)
+//	if err != nil {
+//		return err
+//	}
+//	defer f.Close()
+
+// Where do we use Read() ????
+
+	decoder, err := mp3.NewDecoder(mp3_bytes)
+	if err != nil {
+		return err
+	}
+	defer decoder.Close()
+
+	player, err := oto.NewPlayer(decoder.SampleRate(), 2, 2, 8192)
+	if err != nil {
+		return err
+	}
+	defer player.Close()
+
+	fmt.Printf("Length: %d[bytes]\n", decoder.Length())
+
+	if _, err := io.Copy(player, decoder); err != nil {
 		return err
 	}
 	return nil
