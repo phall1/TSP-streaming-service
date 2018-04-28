@@ -141,18 +141,9 @@ func remove_songs(peer net.Conn) {
 	// TODO: assign id numbers properly
 	ip := peer.RemoteAddr().String()
 	ip_slice := strings.Split(ip, ":")
-	/*
-		for _, s := range info {
-			if strings.Contains(ip) {
-				continue
-			}
-		}
-	*/
+
 	for i := 0; i < len(info); i++ {
-		fmt.Println(info[i])
-		fmt.Println(ip_slice[0])
 		if strings.Contains(info[i], ip_slice[0]) {
-			fmt.Println("contains")
 			info = append(info[:i], info[i+1:]...)
 			i--
 		}
