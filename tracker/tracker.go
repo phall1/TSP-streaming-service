@@ -99,7 +99,11 @@ func handleConnection(peer net.Conn) {
 		fmt.Println("QUIT")
 		// remove songs in the lsit that was jsut sent
 		// Mimic the INIT case?
+		fmt.Println("before removing")
+		fmt.Println(info)
 		remove_songs(peer)
+		fmt.Println("after removing")
+		fmt.Println(info)
 	default:
 		fmt.Println("Bad Msg Header")
 	}
