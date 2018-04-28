@@ -150,6 +150,7 @@ func remove_songs(peer net.Conn) {
 	for i := 0; i < len(info); i++ {
 		fmt.Println(info[i])
 		if strings.Contains(info[i], ip) {
+			fmt.Println("contains")
 			info = append(info[:i], info[i+1:]...)
 			i--
 		}
