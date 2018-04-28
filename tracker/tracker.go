@@ -22,6 +22,8 @@ type TSP_msg struct {
 const (
 	INIT = iota
 	LIST
+	PLAY
+	QUIT
 )
 
 const MAX_SONGS = 1000
@@ -93,6 +95,11 @@ func handleConnection(peer net.Conn) {
 	case LIST:
 		fmt.Println("INFO")
 		send_info_file(peer)
+	case QUIT:
+		fmt.Println("QUIT")
+		// remove songs in the lsit that was jsut sent
+		// Mimic the INIT case?
+		remove_songs(peer)
 	default:
 		fmt.Println("Bad Msg Header")
 	}
@@ -116,6 +123,27 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 		record := "ID, " + ip + s
 		info = append(info, record)
 	}
+	fmt.Println(info)
+	// unlock
+}
+
+/**
+ * takes new peer's song list, and adds their songs
+ * to the info file, with the peers IP addess, and
+ * assigns ID's to the new songs
+ */
+func remove_songs(peer net.Conn) {
+	// TODO: lock
+	// TODO: assign id numbers properly
+	ip := peer.RemoteAddr().String()
+
+	for i := 0; i < len(info); i++ {
+		if strings.Contains(info[i], ip) {
+			info = append(info[:i], info[i+1:]...)
+			i--
+		}
+	}
+
 	fmt.Println(info)
 	// unlock
 }
