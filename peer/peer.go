@@ -49,22 +49,6 @@ func init() {
 	gob.Register(&TSP_msg{})
 }
 
-func GetLocalIP() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return ""
-	}
-	// Check the address type and if it is not a loopback then display it
-	for _, address := range addrs {
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
-			}
-		}
-	}
-	return ""
-}
-
 func main() {
 	args := os.Args[:]
 	if len(args) != 3 {
@@ -82,6 +66,22 @@ func main() {
 			break
 		}
 	}
+}
+
+func GetLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	// Check the address type and if it is not a loopback then display it
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
 }
 
 /**
@@ -106,7 +106,7 @@ func become_discoverable(args []string) {
  *
  */
 func serve_songs(args []string) {
-	server_ln, err := net.Listen("tcp", ":"+args[1])
+	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
 	if err != nil {
 		panic(err)
 	}
@@ -184,7 +184,8 @@ func handle_command(args []string) int {
 		// get list from server
 		hdr.Type = LIST
 		fmt.Println("LIST")
-		tracker := send_list_request(*hdr, args) // TSP_header error
+		// tracker := send_list_request(*hdr, args) // TSP_header error
+		tracker := send_request(*hdr, TRACKER_IP+":"+args[1])
 		receive_master_list(tracker)
 	case "PLAY":
 		hdr.Type = PLAY
@@ -227,6 +228,19 @@ func play_song(hdr TSP_header, ip string, song_id int) {
 	encoder := gob.NewEncoder(peer)
 	msg_struct := &TSP_msg{hdr, []byte(tmp_msg)}
 	encoder.Encode(msg_struct)
+}
+
+func send_request(hdr TSP_header, args []string, dest_ip string) (conn net.Conn) {
+	conn, err := net.Dial("tcp", dest_ip)
+	if err != nil {
+		fmt.Println("error connecting to " + dest_ip)
+		os.Exit(1)
+	}
+	msg_content := ""
+	encoder := gob.NewEncoder(tracker)
+	msg_struct := &TSP_msg{hdr, []byte(msg_content)}
+	encoder.Encode(msg_struct)
+	return
 }
 
 /**
@@ -308,23 +322,6 @@ func print_master_list(list string) {
 	}
 }
 
-/**
-func GetLocalIP() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return ""
-	}
-	// Check the address type and if it is not a loopback then display it
-	for _, address := range addrs {
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
-			}
-		}
-	}
-	return ""
-}
-*/
 /**
  * Receive and play music
 //func play_mp3(peer net.Conn, mp3_file []byte) { //as the bytes are being
