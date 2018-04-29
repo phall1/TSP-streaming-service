@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -179,6 +180,7 @@ func handle_command(args []string) int {
 	})
 
 	hdr := new(TSP_header)
+	var peer_ip string
 
 	switch cmd {
 	case "LIST":
@@ -189,11 +191,7 @@ func handle_command(args []string) int {
 	case "PLAY":
 		hdr.Type = PLAY
 		fmt.Println("PLAY")
-		id := get_song_selection()
-		// TODO: ask user for id from user (return it & peerIP)
-		// hdr.Song_id, peer_ip := get_song_id()
-		send_request(*hdr, peer_ip+args[1])
-		fmt.Println("this is the id: " + id)
+		hdr.Song_id, peer_ip = get_song_selection()
 		// play_song(*hdr, "localhost:6969", 69)
 	case "PAUSE":
 		hdr.Type = PAUSE
@@ -212,8 +210,10 @@ func handle_command(args []string) int {
 	return 0
 }
 
-func get_song_selection() (id string) {
+func get_song_selection() (int, string) {
 	songs := strings.Split(master_list, "\n")
+	// var ip string
+	var ip string
 
 	ui := &input.UI{
 		Writer: os.Stdout,
@@ -222,21 +222,19 @@ func get_song_selection() (id string) {
 	query := "Select a song"
 	// need a string slide of the names of songs
 	id, _ := ui.Ask(query, &input.Options{
-		ValidateFunc: func(s string) error {
+		ValidateFunc: func(id string) error {
 			for _, s := range songs {
 				if strings.Contains(s, id) {
+					ip = strings.SplitN(s, ":", 3)[1][1:]
 					return nil
 				}
 			}
-			return err
+			return fmt.Errorf("song id not here")
 		},
 		Loop: true,
 	})
-	return id
-}
-
-func ask_for_id() {
-
+	ret, _ := strconv.ParseInt(id, 10, 32)
+	return int(ret), ip
 }
 
 func play_song(hdr TSP_header, ip string, song_id int) {
@@ -276,7 +274,7 @@ func receive_master_list(tracker net.Conn) {
 	decoder.Decode(&in_msg)
 
 	master_list = string(in_msg.Msg[:])
-	fmt.Println(master_list)
+	// fmt.Println(master_list)
 	print_master_list(master_list)
 }
 
