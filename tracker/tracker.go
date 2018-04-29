@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 )
 
 type TSP_header struct {
@@ -66,6 +67,8 @@ func main() {
 	}
 	defer ln.Close()
 
+	var mutex = &sync.Mutex{}
+
 	for {
 		peer, err := ln.Accept()
 		if err != nil {
@@ -91,18 +94,24 @@ func handleConnection(peer net.Conn) {
 	switch in_msg.Header.Type {
 	case INIT:
 		fmt.Println("INIT")
+		mutex.Lock()
 		get_info_from_peer(peer, in_msg.Msg)
+		mutex.Unlock()
 	case LIST:
 		fmt.Println("INFO")
+		mutex.Lock()
 		send_info_file(peer)
+		mutex.Unlock()
 	case QUIT:
 		fmt.Println("QUIT")
 		// remove songs in the lsit that was jsut sent
 		// Mimic the INIT case?
 		fmt.Println("before removing")
 		fmt.Println(info)
+		mutex.Lock()
 		remove_songs(peer)
 		fmt.Println("after removing")
+		mutex.Unlock()
 		fmt.Println(info)
 	default:
 		fmt.Println("Bad Msg Header")
