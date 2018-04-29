@@ -129,6 +129,7 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 		}
 		fmt.Println(id_counter)
 		record := strconv.Itoa(id_counter)
+		record += ": "
 		record += ip
 		record += s
 		// record := "ID: " + ip + s
