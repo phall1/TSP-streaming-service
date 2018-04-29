@@ -31,7 +31,8 @@ const (
 )
 
 //const TRACKER_IP = "172.17.31.37:"
-//const TRACKER_IP = "10.41.6.197:"
+// const TRACKER_IP = "10.41.6.197:"
+
 const TRACKER_IP = "172.17.92.155:"
 
 var master_list string
@@ -95,8 +96,9 @@ func become_discoverable(args []string) {
 	// Connect to tacker
 	tracker, err := net.Dial("tcp", TRACKER_IP+args[1])
 	if err != nil {
-		fmt.Println("Error connecting to tracker")
-		os.Exit(1)
+		panic(err)
+		// fmt.Println("Error connecting to tracker")
+		// os.Exit(1)
 	}
 	defer tracker.Close()
 
@@ -294,9 +296,9 @@ func receive_message(server_ln net.Conn) {
 	// To change for music we will create file and read contents to file
 	// Or we can alter the play_mp3 file to directly read the contents
 	// Definetly the second one but need to figure it out
-	fmt.Println("dummy message below")
-	fmt.Println(string(in_msg.Msg))
-	fmt.Println(in_msg.Header.Type)
+	// fmt.Println("dummy message below")
+	// fmt.Println(string(in_msg.Msg))
+	// fmt.Println(in_msg.Header.Type)
 }
 
 /**

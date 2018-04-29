@@ -30,6 +30,7 @@ const (
 const MAX_SONGS = 1000
 
 var info = make([]string, 0)
+var id_counter int = 0
 
 func init() {
 	gob.Register(&TSP_header{})
@@ -87,36 +88,28 @@ func main() {
  * or sends back the master info file
  */
 func handleConnection(peer net.Conn, mutex *sync.Mutex) {
+	defer peer.Close()
 	decoder := gob.NewDecoder(peer)
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
 
+	mutex.Lock()
 	switch in_msg.Header.Type {
 	case INIT:
 		fmt.Println("INIT")
-		mutex.Lock()
 		get_info_from_peer(peer, in_msg.Msg)
-		mutex.Unlock()
 	case LIST:
 		fmt.Println("INFO")
-		mutex.Lock()
 		send_info_file(peer)
-		mutex.Unlock()
 	case QUIT:
 		fmt.Println("QUIT")
 		// remove songs in the lsit that was jsut sent
 		// Mimic the INIT case?
-		fmt.Println("before removing")
-		fmt.Println(info)
-		mutex.Lock()
 		remove_songs(peer)
-		fmt.Println("after removing")
-		mutex.Unlock()
-		fmt.Println(info)
 	default:
 		fmt.Println("Bad Msg Header")
 	}
-	peer.Close()
+	mutex.Unlock()
 }
 
 /**
@@ -133,7 +126,8 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 		if s == "" {
 			continue
 		}
-		record := "ID: " + ip + s
+		record := string(id_counter) + ip + s
+		id_counter++
 		info = append(info, record)
 	}
 	fmt.Println(info)
