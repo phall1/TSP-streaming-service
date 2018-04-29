@@ -6,6 +6,7 @@ import (
 	// "io/ioutil"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -127,7 +128,7 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 			continue
 		}
 		fmt.Println(id_counter)
-		record := string(id_counter)
+		record := strconv.Itoa(id_counter)
 		record += ip
 		record += s
 		// record := "ID: " + ip + s
