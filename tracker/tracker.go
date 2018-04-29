@@ -124,7 +124,7 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 	song_strs := strings.Split(string(song_bytes[:]), "\n")
 	ip := peer.RemoteAddr().String() + ", "
 	fmt.Println("loop")
-	for _, s := range song_strs {
+	for i, s := range song_strs {
 		if s == "" {
 			continue
 		}
@@ -133,6 +133,8 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 		record += ": "
 		record += ip
 		record += s
+		record += song_strs[i+1]
+		i++
 
 		fmt.Println(s)
 		// record := "ID: " + ip + s
