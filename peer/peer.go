@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path"
+	// "path/filepath"
 	"strconv"
 	"strings"
 )
@@ -142,6 +143,12 @@ func get_local_song_info(dir_name string) []string {
 			continue
 		}
 		content, _ := ioutil.ReadFile(dir_name + "/" + info_files[i].Name())
+
+		// var extension = filepath.Ext(info_files[i].Name())
+		// var mp3_name = "> "
+		// mp3_name += info_files[i].Name()[0 : len(info_files[i].Name())-len(extension)]
+		//
+		// content = append(content, mp3_name...)
 		song_info = append(song_info, string(content[:]))
 	}
 	return song_info
@@ -286,19 +293,43 @@ func receive_master_list(tracker net.Conn) {
 }
 
 /**
-* This receives message slice and creates a file with contents
+ * called by the server thread, will act accordingly
  */
 func receive_message(server_ln net.Conn) {
 	//defer server_ln.Close()
 	decoder := gob.NewDecoder(server_ln)
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
+
+	switch in_msg.Header.Type {
+	case PLAY:
+		song_file := get_song_filename(strconv.Itoa(in_msg.Header.Song_id))
+		// get song name by id
+		if song_file == "" {
+			fmt.Println("error sing file empty") // to silence the warnings
+		}
+	default:
+		// send a null response
+		return
+	}
 	// To change for music we will create file and read contents to file
 	// Or we can alter the play_mp3 file to directly read the contents
 	// Definetly the second one but need to figure it out
 	// fmt.Println("dummy message below")
 	// fmt.Println(string(in_msg.Msg))
 	// fmt.Println(in_msg.Header.Type)
+}
+
+func get_song_filename(id string) string {
+	rows := strings.Split(master_list, "\n")
+	for _, r := range rows {
+		if strings.Split(r, ":")[0] == id {
+			r = strings.Replace(r, ", ", "\t", -1)
+			end := strings.Index(r, ">")
+			return r[end+2:]
+		}
+	}
+	return ""
 }
 
 /**
@@ -309,7 +340,8 @@ func print_master_list(list string) {
 	rows := strings.Split(list, "\n")
 	for _, r := range rows {
 		r = strings.Replace(r, ", ", "\t", -1)
-		fmt.Println(r)
+		end := strings.Index(r, ">")
+		fmt.Println(r[:end])
 	}
 }
 
