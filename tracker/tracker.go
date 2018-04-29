@@ -77,7 +77,7 @@ func main() {
 			continue
 		}
 		fmt.Println("handle_connection")
-		go handleConnection(peer)
+		go handleConnection(peer, mutex)
 	}
 }
 
@@ -86,7 +86,7 @@ func main() {
  * either takes the new peer's song list,
  * or sends back the master info file
  */
-func handleConnection(peer net.Conn) {
+func handleConnection(peer net.Conn, mutex *sync.Mutex) {
 	decoder := gob.NewDecoder(peer)
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
