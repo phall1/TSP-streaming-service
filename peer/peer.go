@@ -171,7 +171,6 @@ func send_local_song_info(tracker net.Conn, songs []string) {
  */
 func handle_command(args []string) int {
 	cmd := get_cmd()
-
 	hdr := new(TSP_header)
 	var peer_ip string
 
@@ -190,8 +189,8 @@ func handle_command(args []string) int {
 	case "PAUSE":
 		hdr.Type = PAUSE
 		fmt.Println("PAUSE")
-	// find song playing and stop if (in the other goroutine, use
-	// channesl)
+		// find song playing and stop if (in the other goroutine, use
+		// channesl)
 	case "QUIT":
 		hdr.Type = QUIT
 		_ = send_request(*hdr, TRACKER_IP+args[1])
