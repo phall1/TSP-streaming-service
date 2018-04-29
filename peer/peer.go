@@ -241,6 +241,7 @@ func get_song_selection() (int, string) {
 }
 
 func play_song(hdr TSP_header, ip string, song_id int) {
+	fmt.Println("THIS IS THE IP" + ip)
 	peer, err := net.Dial("tcp", ip)
 	if err != nil {
 		fmt.Println("Error connecting to peer")
