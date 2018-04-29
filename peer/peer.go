@@ -170,14 +170,7 @@ func send_local_song_info(tracker net.Conn, songs []string) {
 * QUIT - <--
  */
 func handle_command(args []string) int {
-	ui := &input.UI{
-		Writer: os.Stdout,
-		Reader: os.Stdin,
-	}
-	query := "Select option"
-	cmd, _ := ui.Select(query, []string{"LIST", "PLAY", "PAUSE", "QUIT"}, &input.Options{
-		Loop: true,
-	})
+	cmd := get_cmd()
 
 	hdr := new(TSP_header)
 	var peer_ip string
@@ -192,6 +185,7 @@ func handle_command(args []string) int {
 		hdr.Type = PLAY
 		fmt.Println("PLAY")
 		hdr.Song_id, peer_ip = get_song_selection()
+		fmt.Println(peer_ip)
 		// play_song(*hdr, "localhost:6969", 69)
 	case "PAUSE":
 		hdr.Type = PAUSE
@@ -210,6 +204,18 @@ func handle_command(args []string) int {
 	return 0
 }
 
+func get_cmd() string {
+	ui := &input.UI{
+		Writer: os.Stdout,
+		Reader: os.Stdin,
+	}
+	query := "Select option"
+	cmd, _ := ui.Select(query, []string{"LIST", "PLAY", "PAUSE", "QUIT"}, &input.Options{
+		Loop: true,
+	})
+	return cmd
+}
+
 func get_song_selection() (int, string) {
 	songs := strings.Split(master_list, "\n")
 	// var ip string
@@ -220,7 +226,6 @@ func get_song_selection() (int, string) {
 		Reader: os.Stdin,
 	}
 	query := "Select a song"
-	// need a string slide of the names of songs
 	id, _ := ui.Ask(query, &input.Options{
 		ValidateFunc: func(id string) error {
 			for _, s := range songs {
