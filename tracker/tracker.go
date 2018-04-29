@@ -30,7 +30,7 @@ const (
 const MAX_SONGS = 1000
 
 var info = make([]string, 0)
-var id_counter int = 0
+var id_counter int = 10
 
 func init() {
 	gob.Register(&TSP_header{})
