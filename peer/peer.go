@@ -34,7 +34,6 @@ const (
 //const TRACKER_IP = "10.41.6.197:"
 const TRACKER_IP = "172.17.92.155:"
 
-// var master_list = make([]string, 0) // Everytime a peer joins we are sending the local list to
 var master_list string
 var local_list = make([]string, 0)
 
@@ -105,7 +104,7 @@ func become_discoverable(args []string) {
 }
 
 /**
- *
+*
  */
 func serve_songs(args []string) {
 	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
@@ -185,7 +184,7 @@ func handle_command(args []string) int {
 		fmt.Println("PLAY")
 		hdr.Song_id, peer_ip = get_song_selection()
 		fmt.Println(peer_ip)
-		// play_song(*hdr, "localhost:6969", 69)
+		play_song(*hdr, peer_ip+args[1], 69)
 	case "PAUSE":
 		hdr.Type = PAUSE
 		fmt.Println("PAUSE")
@@ -238,7 +237,7 @@ func get_song_selection() (int, string) {
 		Loop: true,
 	})
 	ret, _ := strconv.ParseInt(id, 10, 32)
-	return int(ret), ip
+	return int(ret), ip + ":"
 }
 
 func play_song(hdr TSP_header, ip string, song_id int) {
@@ -248,7 +247,7 @@ func play_song(hdr TSP_header, ip string, song_id int) {
 		return
 	}
 
-	tmp_msg := "play song here"
+	tmp_msg := "DUMMY MESSAGE: HELLO"
 	encoder := gob.NewEncoder(peer)
 	msg_struct := &TSP_msg{hdr, []byte(tmp_msg)}
 	encoder.Encode(msg_struct)
@@ -283,7 +282,7 @@ func receive_master_list(tracker net.Conn) {
 }
 
 /**
- * This receives message slice and creates a file with contents
+* This receives message slice and creates a file with contents
  */
 func receive_message(server_ln net.Conn) {
 	//defer server_ln.Close()
@@ -293,11 +292,13 @@ func receive_message(server_ln net.Conn) {
 	// To change for music we will create file and read contents to file
 	// Or we can alter the play_mp3 file to directly read the contents
 	// Definetly the second one but need to figure it out
+	fmt.Println("dummy message below")
+	fmt.Println(string(in_msg.Msg))
 	fmt.Println(in_msg.Header.Type)
 }
 
 /**
- * prints master list received from tracker
+* prints master list received from tracker
  */
 func print_master_list(list string) {
 	// TODO: format output nicely
@@ -309,7 +310,7 @@ func print_master_list(list string) {
 }
 
 /**
- * Receive and play music
+* Receive and play music
 //func play_mp3(peer net.Conn, mp3_file []byte) { //as the bytes are being
 //read in use the Read() func
 /*
@@ -343,13 +344,13 @@ func play_mp3(mp3_file string) {
 
 /*
 func play_mp3(streaming_peer net.Conn, mp3_bytes []bytes) {
-//	f, err := os.Open(mp3_file)
-//	if err != nil {
-//		return err
-//	}
-//	defer f.Close()
+	//	f, err := os.Open(mp3_file)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	defer f.Close()
 
-// Where do we use Read() ????
+	// Where do we use Read() ????
 
 	decoder, err := mp3.NewDecoder(mp3_bytes)
 	if err != nil {
