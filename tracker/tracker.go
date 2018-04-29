@@ -127,7 +127,8 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 			continue
 		}
 		fmt.Println(id_counter)
-		record := string(id_counter) + ": " + ip + s
+		id_str := string(id_counter)
+		record := id_str + ": " + ip + s
 		id_counter++
 		info = append(info, record)
 	}
