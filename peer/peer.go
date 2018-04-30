@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/tcnksm/go-input"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
