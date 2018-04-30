@@ -11,6 +11,9 @@ import (
 	// "path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/hajimehoshi/go-mp3"
+	"github.com/hajimehoshi/oto"
 )
 
 type TSP_header struct {
@@ -379,17 +382,16 @@ func play_mp3(mp3_file string) {
 }
 */
 
-/*
-func play_mp3(streaming_peer net.Conn, mp3_bytes []bytes) {
-	//	f, err := os.Open(mp3_file)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	defer f.Close()
+func play_mp3(mp3_name string) error {
+	mp3_file := "songs/"
+	mp3_file += mp3_name
+	file, err := os.Open(mp3_file)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
-	// Where do we use Read() ????
-
-	decoder, err := mp3.NewDecoder(mp3_bytes)
+	decoder, err := mp3.NewDecoder(file)
 	if err != nil {
 		return err
 	}
@@ -408,4 +410,3 @@ func play_mp3(streaming_peer net.Conn, mp3_bytes []bytes) {
 	}
 	return nil
 }
-*/
