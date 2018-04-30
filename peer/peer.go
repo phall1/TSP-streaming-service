@@ -40,8 +40,7 @@ const (
 
 const TRACKER_IP = "172.17.92.155:"
 
-// const TRACKER_IP = "localhost:"
-// const TRACKER_IP = "172.17.11.227:"
+const TRACKER_IP = "172.17.31.37:"
 
 // const TRACKER_IP = "192.168.1.72:"
 
