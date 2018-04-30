@@ -38,8 +38,11 @@ const (
 //const TRACKER_IP = "172.17.31.37:"
 // const TRACKER_IP = "10.41.6.197:"
 
-// const TRACKER_IP = "172.17.92.155:"
-const TRACKER_IP = "192.168.1.72:"
+const TRACKER_IP = "172.17.92.155:"
+
+// const TRACKER_IP = "localhost:"
+
+// const TRACKER_IP = "192.168.1.72:"
 
 var master_list string
 var local_list = make([]string, 0)
@@ -55,6 +58,19 @@ var local_list = make([]string, 0)
 func init() {
 	gob.Register(&TSP_header{})
 	gob.Register(&TSP_msg{})
+}
+
+/**
+* prints master list received from tracker
+ */
+func print_master_list(list string) {
+	// TODO: format output nicely
+	rows := strings.Split(list, "\n")
+	for _, r := range rows {
+		r = strings.Replace(r, ", ", "\t", -1)
+		end := strings.Index(r, ">")
+		fmt.Println(r[:end])
+	}
 }
 
 func main() {
@@ -198,7 +214,10 @@ func handle_command(args []string) int {
 		fmt.Println("PLAY")
 		hdr.Song_id, peer_ip = get_song_selection()
 		fmt.Println(peer_ip)
-		play_song(*hdr, peer_ip+args[1], 69)
+		peer := send_play_request(*hdr, peer_ip+args[1], 69)
+		receive_mp3(peer)
+		// receive mp3
+		// play mp3
 	case "PAUSE":
 		hdr.Type = PAUSE
 		fmt.Println("PAUSE")
@@ -232,6 +251,7 @@ func get_song_selection() (int, string) {
 	songs := strings.Split(master_list, "\n")
 	// var ip string
 	var ip string
+	// go play_incoming_song(
 
 	ui := &input.UI{
 		Writer: os.Stdout,
@@ -254,19 +274,20 @@ func get_song_selection() (int, string) {
 	return int(ret), ip + ":"
 }
 
-func play_song(hdr TSP_header, ip string, song_id int) {
+func send_play_request(hdr TSP_header, ip string, song_id int) net.Conn {
 
 	fmt.Println("THIS IS THE IP" + ip)
 	peer, err := net.Dial("tcp", ip)
 	if err != nil {
 		fmt.Println("Error connecting to peer")
-		return
+		return nil
 	}
 
 	tmp_msg := "DUMMY MESSAGE: HELLO"
 	encoder := gob.NewEncoder(peer)
 	msg_struct := &TSP_msg{hdr, []byte(tmp_msg)}
 	encoder.Encode(msg_struct)
+	return peer
 }
 
 func send_request(hdr TSP_header, dest_ip string) (conn net.Conn) {
@@ -297,34 +318,6 @@ func receive_master_list(tracker net.Conn) {
 	print_master_list(master_list)
 }
 
-/**
- * called by the server thread, will act accordingly
- */
-func receive_message(server_ln net.Conn) {
-	//defer server_ln.Close()
-	decoder := gob.NewDecoder(server_ln)
-	in_msg := new(TSP_msg)
-	decoder.Decode(&in_msg)
-
-	switch in_msg.Header.Type {
-	case PLAY:
-		song_file := get_song_filename(strconv.Itoa(in_msg.Header.Song_id))
-		// get song name by id
-		if song_file == "" {
-			fmt.Println("error sing file empty") // to silence the warnings
-		}
-	default:
-		// send a null response
-		return
-	}
-	// To change for music we will create file and read contents to file
-	// Or we can alter the play_mp3 file to directly read the contents
-	// Definetly the second one but need to figure it out
-	// fmt.Println("dummy message below")
-	// fmt.Println(string(in_msg.Msg))
-	// fmt.Println(in_msg.Header.Type)
-}
-
 func get_song_filename(id string) string {
 	rows := strings.Split(master_list, "\n")
 	for _, r := range rows {
@@ -338,76 +331,93 @@ func get_song_filename(id string) string {
 }
 
 /**
-* prints master list received from tracker
+ * called by the server thread, will act accordingly
  */
-func print_master_list(list string) {
-	// TODO: format output nicely
-	rows := strings.Split(list, "\n")
-	for _, r := range rows {
-		r = strings.Replace(r, ", ", "\t", -1)
-		end := strings.Index(r, ">")
-		fmt.Println(r[:end])
+func receive_message(client net.Conn) {
+	//defer server_ln.Close()
+	decoder := gob.NewDecoder(client)
+	in_msg := new(TSP_msg)
+	decoder.Decode(&in_msg)
+
+	switch in_msg.Header.Type {
+	case PLAY:
+		song_file := get_song_filename(strconv.Itoa(in_msg.Header.Song_id))
+		// send mp3 file
+		//play_mp3(song_binary, song_file, client)
+		send_mp3_file(song_file, client)
+		if song_file == "" {
+			fmt.Println("error sing file empty") // to silence the warnings
+		}
+	default:
+		// send a null response
+		return
 	}
 }
 
-/**
-* Receive and play music
-//func play_mp3(peer net.Conn, mp3_file []byte) { //as the bytes are being
-//read in use the Read() func
-/*
-func play_mp3(mp3_file string) {
-	f, err := os.Open(mp3_file)
+func send_mp3_file(song_file string, client net.Conn) {
+
+	f, err := os.Open(song_file)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	defer f.Close()
 
-	d, err := mp3.NewDecoder(f)
+	_, err = io.Copy(client, f)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	defer d.Close()
 
-	p, err := oto.NewPlayer(d.SampleRate(), 2, 2, 8192)
-	if err != nil {
-		return err
-	}
-	defer p.Close()
-
-	fmt.Printf("Length: %d[bytes]\n", d.Length())
-
-	if _, err := io.Copy(p, d); err != nil {
-		return err
-	}
-	return nil
+	// encoder := gob.NewEncoder(conn)
+	// msg_struct := &TSP_msg{hdr}
+	// encoder.Encode(msg_struct)
+	// return
 }
-*/
 
-func play_mp3(mp3_name string) error {
-	mp3_file := "songs/"
-	mp3_file += mp3_name
-	file, err := os.Open(mp3_file)
+func receive_mp3(server net.Conn) {
+	decoder, err := mp3.NewDecoder(server)
 	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	decoder, err := mp3.NewDecoder(file)
-	if err != nil {
-		return err
+		panic(err)
 	}
 	defer decoder.Close()
-
 	player, err := oto.NewPlayer(decoder.SampleRate(), 2, 2, 8192)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	defer player.Close()
 
 	fmt.Printf("Length: %d[bytes]\n", decoder.Length())
 
 	if _, err := io.Copy(player, decoder); err != nil {
-		return err
+		panic(err)
 	}
-	return nil
+}
+
+// REFERENCE  BELOW
+func play_mp3(mp3_name string) {
+	mp3_file := "songs/"
+	mp3_file += mp3_name
+	file, err := os.Open(mp3_file)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	// FILE HERE
+
+	decoder, err := mp3.NewDecoder(file)
+	if err != nil {
+		panic(err)
+	}
+	defer decoder.Close()
+
+	player, err := oto.NewPlayer(decoder.SampleRate(), 2, 2, 8192)
+	if err != nil {
+		panic(err)
+	}
+	defer player.Close()
+
+	fmt.Printf("Length: %d[bytes]\n", decoder.Length())
+
+	if _, err := io.Copy(player, decoder); err != nil {
+		panic(err)
+	}
 }
