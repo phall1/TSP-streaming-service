@@ -38,9 +38,8 @@ const (
 //const TRACKER_IP = "172.17.31.37:"
 // const TRACKER_IP = "10.41.6.197:"
 
-const TRACKER_IP = "172.17.92.155:"
-
-// const TRACKER_IP = "localhost:"
+// const TRACKER_IP = "172.17.92.155:"
+const TRACKER_IP = "localhost:"
 
 // const TRACKER_IP = "192.168.1.72:"
 
@@ -374,6 +373,8 @@ func send_mp3_file(song_file string, client net.Conn) {
 }
 
 func receive_mp3(server net.Conn) {
+	// START CODING FROM HERE
+	// TODO: receive the actual file here
 	decoder, err := mp3.NewDecoder(server)
 	if err != nil {
 		panic(err)

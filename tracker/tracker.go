@@ -126,7 +126,7 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 	ip := peer.RemoteAddr().String() + ", "
 	fmt.Println("loop")
 	// for i := 0; i < len(song_strs); i += 2 {
-	for i, s := range song_strs {
+	for i, _ := range song_strs {
 		if song_strs[i] == "" {
 			continue
 		}
