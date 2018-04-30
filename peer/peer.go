@@ -38,9 +38,10 @@ const (
 //const TRACKER_IP = "172.17.31.37:"
 // const TRACKER_IP = "10.41.6.199:"
 
-// const TRACKER_IP = "172.17.92.155:"
+const TRACKER_IP = "172.17.92.155:"
+
 // const TRACKER_IP = "localhost:"
-const TRACKER_IP = "172.17.11.227:"
+// const TRACKER_IP = "172.17.11.227:"
 
 // const TRACKER_IP = "192.168.1.72:"
 
@@ -60,19 +61,6 @@ func init() {
 	gob.Register(&TSP_msg{})
 }
 
-/**
-* prints master list received from tracker
- */
-func print_master_list(list string) {
-	// TODO: format output nicely
-	rows := strings.Split(list, "\n")
-	for _, r := range rows {
-		r = strings.Replace(r, ", ", "\t", -1)
-		end := strings.Index(r, ">")
-		fmt.Println(r[:end])
-	}
-}
-
 func main() {
 	args := os.Args[:]
 	if len(args) != 3 {
@@ -89,6 +77,19 @@ func main() {
 		if handle_command(args) < 0 {
 			break
 		}
+	}
+}
+
+/**
+* prints master list received from tracker
+ */
+func print_master_list(list string) {
+	// TODO: format output nicely
+	rows := strings.Split(list, "\n")
+	for _, r := range rows {
+		r = strings.Replace(r, ", ", "\t", -1)
+		end := strings.Index(r, ">")
+		fmt.Println(r[:end])
 	}
 }
 
@@ -116,6 +117,7 @@ func become_discoverable(args []string) {
 	songs := get_local_song_info(args[2])
 
 	// Connect to tacker
+	fmt.Println(TRACKER_IP + args[1])
 	tracker, err := net.Dial("tcp", TRACKER_IP+args[1])
 	if err != nil {
 		panic(err)
@@ -356,7 +358,7 @@ func receive_message(client net.Conn) {
 
 func send_mp3_file(song_file string, client net.Conn) {
 
-	f, err := os.Open(song_file)
+	f, err := os.Open("songs/" + song_file)
 	if err != nil {
 		panic(err)
 	}
