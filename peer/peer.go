@@ -40,10 +40,6 @@ const (
 
 const TRACKER_IP = "172.17.92.155:"
 
-// const TRACKER_IP = "172.17.31.37:"
-
-// const TRACKER_IP = "192.168.1.72:"
-
 var master_list string
 var local_list = make([]string, 0)
 
