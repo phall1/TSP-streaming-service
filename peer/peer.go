@@ -57,29 +57,6 @@ func init() {
 	gob.Register(&TSP_msg{})
 }
 
-func main() {
-	args := os.Args[:]
-	if len(args) != 3 {
-		fmt.Println("Usage: ", args[0], "<port> <filedir>")
-		os.Exit(1)
-	}
-
-	become_discoverable(args)
-
-	// go start serving songs
-	//TODO: EPOLL
-	go serve_songs(args)
-
-	send_stop_chan := make(chan struct{})
-	send_done_chan := make(chan struct{})
-
-	for {
-		if handle_command(args, send_stop_chan, send_done_chan) < 0 {
-			break
-		}
-	}
-}
-
 /**
 * prints master list received from tracker
  */
@@ -115,56 +92,14 @@ func GetLocalIP() string {
  */
 func become_discoverable(args []string) {
 	songs := get_local_song_info(args[2])
-
 	// Connect to tacker
 	fmt.Println(TRACKER_IP + args[1])
 	tracker, err := net.Dial("tcp", TRACKER_IP+args[1])
 	if err != nil {
 		panic(err)
-		// fmt.Println("Error connecting to tracker")
-		// os.Exit(1)
 	}
 	defer tracker.Close()
-
 	send_local_song_info(tracker, songs)
-}
-
-/**
-*
- */
-func serve_songs(args []string) {
-	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
-	if err != nil {
-		panic(err)
-	}
-	defer server_ln.Close()
-
-	for {
-		client, err := server_ln.Accept()
-		if err != nil {
-			continue
-		}
-		go receive_message(client)
-	}
-}
-
-func serve_songs_epoll(args []string) {
-	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
-	//var event syscall.EpollEvent
-	//var events[MAX_EPOLL_EVENTS]syscall.EpollEvent
-
-	if err != nil {
-		panic(err)
-	}
-	defer server_ln.Close()
-
-	for {
-		client, err := server_ln.Accept()
-		if err != nil {
-			continue
-		}
-		go receive_message(client)
-	}
 }
 
 /**
@@ -208,54 +143,6 @@ func send_local_song_info(tracker net.Conn, songs []string) {
 	encoder := gob.NewEncoder(tracker)
 	msg_struct := &TSP_msg{TSP_header{Type: 0, Song_id: 0}, []byte(msg_content)}
 	encoder.Encode(msg_struct)
-}
-
-/**
-* handle input command from the user
-* LIST - get song list from peers
-* PLAY <song id> - play song
-* PAUSE - pauses playing of song (buffering continues)
-* STOP - stop streaming song
-* QUIT - <--
- */
-func handle_command(args []string, send_stop_chan chan struct{}, send_done_chan chan struct{}) int {
-	cmd := get_cmd()
-	hdr := new(TSP_header)
-	var peer_ip string
-	//var peer net.Conn
-
-	switch cmd {
-	case "LIST":
-		hdr.Type = LIST
-		fmt.Println("LIST")
-		tracker := send_request(*hdr, TRACKER_IP+args[1])
-		receive_master_list(tracker)
-	case "PLAY":
-		hdr.Type = PLAY
-		fmt.Println("PLAY")
-		hdr.Song_id, peer_ip = get_song_selection()
-		peer := send_play_request(*hdr, peer_ip+args[1], 69)
-		//go receive_mp3(peer)
-		go receive_mp3(peer, send_done_chan, send_stop_chan)
-	case "STOP":
-		hdr.Type = STOP
-		fmt.Println("STOP")
-		//peer.Close()
-		close(send_stop_chan)
-		fmt.Println("Closed stop chan waiting for done chan")
-		<-send_done_chan
-	// find song playing and stop if (in the other goroutine, use
-	// channesl)
-	case "QUIT":
-		hdr.Type = QUIT
-		_ = send_request(*hdr, TRACKER_IP+args[1])
-		fmt.Println("QUIT")
-		// close all connections and quit
-		return -1
-	default:
-		fmt.Println("invalid command")
-	}
-	return 0
 }
 
 func get_cmd() string {
@@ -349,6 +236,155 @@ func get_song_filename(id string) string {
 	return ""
 }
 
+func main() {
+	args := os.Args[:]
+	if len(args) != 3 {
+		fmt.Println("Usage: ", args[0], "<port> <filedir>")
+		os.Exit(1)
+	}
+
+	become_discoverable(args)
+
+	// go start serving songs
+	//TODO: EPOLL
+	go serve_songs(args)
+
+	send_stop_chan := make(chan struct{})
+	play := make(chan bool)
+	stop := make(chan bool)
+
+	for {
+		if handle_command(args, send_stop_chan, play, stop) < 0 {
+			break
+		}
+	}
+}
+
+/**
+* handle input command from the user
+* LIST - get song list from peers
+* PLAY <song id> - play song
+* PAUSE - pauses playing of song (buffering continues)
+* STOP - stop streaming song
+* QUIT - <--
+ */
+func handle_command(args []string, send_stop_chan chan struct{}, play chan bool, stop chan bool) int {
+	cmd := get_cmd()
+	hdr := new(TSP_header)
+	var peer_ip string
+	//var peer net.Conn
+
+	switch cmd {
+	case "LIST":
+		hdr.Type = LIST
+		fmt.Println("LIST")
+		tracker := send_request(*hdr, TRACKER_IP+args[1])
+		receive_master_list(tracker)
+	case "PLAY":
+		hdr.Type = PLAY
+		fmt.Println("PLAY")
+		hdr.Song_id, peer_ip = get_song_selection()
+		peer := send_play_request(*hdr, peer_ip+args[1], 69)
+		go receive_mp3(peer, send_stop_chan, play, stop)
+		play <- true
+	case "STOP":
+		hdr.Type = STOP
+		fmt.Println("STOP")
+		stop <- true
+		//peer.Close()
+		// close(send_stop_chan)
+		// <-send_stop_chan
+		// fmt.Println("Closed stop chan waiting for done chan")
+		// fmt.Println("done chan")
+	case "QUIT":
+		hdr.Type = QUIT
+		_ = send_request(*hdr, TRACKER_IP+args[1])
+		fmt.Println("QUIT")
+		// close all connections and quit
+		return -1
+	default:
+		fmt.Println("invalid command")
+	}
+	return 0
+}
+
+func receive_mp3(server net.Conn, send_stop_chan chan struct{}, play chan bool, stop chan bool) {
+	fmt.Println("here")
+	for {
+		select {
+		// case _ = <-send_stop_chan:
+		case <-stop:
+			// fmt.Println("closgin player")
+			return
+		case <-play:
+			// default:
+			decoder, err := mp3.NewDecoder(server)
+			if err != nil && err == io.EOF {
+				// fmt.Println("EOF error handled.")
+				return
+			}
+			if err != nil && err != io.EOF {
+				panic(err)
+			}
+			defer decoder.Close()
+			player, err := oto.NewPlayer(decoder.SampleRate(), 2, 2, 8192)
+			if err != nil && err == io.EOF {
+				// fmt.Println("EOF error handled.")
+				return
+			}
+			if err != nil && err != io.EOF {
+				panic(err)
+			}
+			defer player.Close()
+
+			go func() {
+				if _, _ = io.Copy(player, decoder); err != nil {
+					// fmt.Println(err)
+					// panic(err)
+				}
+			}()
+		}
+	}
+}
+
+/**
+ *
+ */
+func serve_songs(args []string) {
+	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
+	if err != nil {
+		panic(err)
+	}
+	defer server_ln.Close()
+
+	for {
+		client, err := server_ln.Accept()
+		if err != nil {
+			continue
+		}
+		go receive_message(client)
+	}
+}
+
+func serve_songs_epoll(args []string) {
+	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
+	//var event syscall.EpollEvent
+	//var events[MAX_EPOLL_EVENTS]syscall.EpollEvent
+
+	if err != nil {
+		panic(err)
+	}
+	defer server_ln.Close()
+
+	for {
+		client, err := server_ln.Accept()
+		if err != nil {
+			continue
+		}
+		go receive_message(client)
+	}
+}
+
 /**
  * called by the server thread, will act accordingly
  */
@@ -379,44 +415,11 @@ func send_mp3_file(song_file string, client net.Conn) {
 	}
 	defer f.Close()
 
-	_, err = io.Copy(client, f)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func receive_mp3(server net.Conn, send_done_chan chan struct{}, send_stop_chan chan struct{}) {
-	defer close(send_done_chan)
-	for {
-		select {
-		case <-send_stop_chan:
-			fmt.Println("closgin player")
-			return
-		default:
-			decoder, err := mp3.NewDecoder(server)
-			if err != nil && err == io.EOF {
-				fmt.Println("EOF error handled.")
-				return
-			}
-			if err != nil && err != io.EOF {
-				panic(err)
-			}
-			defer decoder.Close()
-			player, err := oto.NewPlayer(decoder.SampleRate(), 2, 2, 8192)
-			if err != nil && err == io.EOF {
-				fmt.Println("EOF error handled.")
-				return
-			}
-			if err != nil && err != io.EOF {
-				panic(err)
-			}
-			defer player.Close()
-
-			if _, err := io.Copy(player, decoder); err != nil {
-				panic(err)
-			}
-		}
-	}
+	_, _ = io.Copy(client, f)
+	// if err != nil {
+	// fmt.Println(err)
+	// panic(err)
+	// }
 }
 
 func play_mp3(server net.Conn) {
@@ -443,24 +446,3 @@ func play_mp3(server net.Conn) {
 		panic(err)
 	}
 }
-
-/*
-func receive_mp3(server net.Conn) {
-	decoder, err := mp3.NewDecoder(server)
-	if err != nil {
-		panic(err)
-	}
-	defer decoder.Close()
-	player, err := oto.NewPlayer(decoder.SampleRate(), 2, 2, 8192)
-	if err != nil {
-		panic(err)
-	}
-	defer player.Close()
-
-	//fmt.Printf("Length: %d[bytes]\n", decoder.Length())
-
-	if _, err := io.Copy(player, decoder); err != nil {
-		panic(err)
-	}
-}
-*/
