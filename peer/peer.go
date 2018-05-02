@@ -36,7 +36,7 @@ const (
 )
 
 //const TRACKER_IP = "172.17.31.37:"
-// const TRACKER_IP = "10.41.6.199:"
+// const TRACKER_IP = "10.41.6.198:"
 
 const TRACKER_IP = "172.17.92.155:"
 
@@ -140,7 +140,6 @@ func serve_songs(args []string) {
 			continue
 		}
 		go receive_message(client)
-		//go receive_mp3()
 	}
 }
 
@@ -210,9 +209,8 @@ func handle_command(args []string) int {
 		hdr.Type = PLAY
 		fmt.Println("PLAY")
 		hdr.Song_id, peer_ip = get_song_selection()
-		fmt.Println(peer_ip)
 		peer := send_play_request(*hdr, peer_ip+args[1], 69)
-		receive_mp3(peer)
+		go receive_mp3(peer)
 		// receive mp3
 		// play mp3
 	case "PAUSE":
@@ -246,9 +244,7 @@ func get_cmd() string {
 
 func get_song_selection() (int, string) {
 	songs := strings.Split(master_list, "\n")
-	// var ip string
 	var ip string
-	// go play_incoming_song(
 
 	ui := &input.UI{
 		Writer: os.Stdout,
@@ -273,7 +269,6 @@ func get_song_selection() (int, string) {
 
 func send_play_request(hdr TSP_header, ip string, song_id int) net.Conn {
 
-	fmt.Println("THIS IS THE IP" + ip)
 	peer, err := net.Dial("tcp", ip)
 	if err != nil {
 		fmt.Println("Error connecting to peer")
@@ -311,7 +306,6 @@ func receive_master_list(tracker net.Conn) {
 	decoder.Decode(&in_msg)
 
 	master_list = string(in_msg.Msg[:])
-	// fmt.Println(master_list)
 	print_master_list(master_list)
 }
 
@@ -331,7 +325,6 @@ func get_song_filename(id string) string {
  * called by the server thread, will act accordingly
  */
 func receive_message(client net.Conn) {
-	//defer server_ln.Close()
 	decoder := gob.NewDecoder(client)
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
@@ -339,8 +332,6 @@ func receive_message(client net.Conn) {
 	switch in_msg.Header.Type {
 	case PLAY:
 		song_file := get_song_filename(strconv.Itoa(in_msg.Header.Song_id))
-		// send mp3 file
-		//play_mp3(song_binary, song_file, client)
 		send_mp3_file(song_file, client)
 		if song_file == "" {
 			fmt.Println("error sing file empty") // to silence the warnings
@@ -352,6 +343,7 @@ func receive_message(client net.Conn) {
 }
 
 func send_mp3_file(song_file string, client net.Conn) {
+	defer client.Close()
 
 	f, err := os.Open("songs/" + song_file)
 	if err != nil {
@@ -363,51 +355,14 @@ func send_mp3_file(song_file string, client net.Conn) {
 	if err != nil {
 		panic(err)
 	}
-
-	// encoder := gob.NewEncoder(conn)
-	// msg_struct := &TSP_msg{hdr}
-	// encoder.Encode(msg_struct)
-	// return
 }
 
 func receive_mp3(server net.Conn) {
-	// START CODING FROM HERE
-	// TODO: receive the actual file here
 	decoder, err := mp3.NewDecoder(server)
 	if err != nil {
 		panic(err)
 	}
 	defer decoder.Close()
-	player, err := oto.NewPlayer(decoder.SampleRate(), 2, 2, 8192)
-	if err != nil {
-		panic(err)
-	}
-	defer player.Close()
-
-	fmt.Printf("Length: %d[bytes]\n", decoder.Length())
-
-	if _, err := io.Copy(player, decoder); err != nil {
-		panic(err)
-	}
-}
-
-// REFERENCE  BELOW
-func play_mp3(mp3_name string) {
-	mp3_file := "songs/"
-	mp3_file += mp3_name
-	file, err := os.Open(mp3_file)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-	// FILE HERE
-
-	decoder, err := mp3.NewDecoder(file)
-	if err != nil {
-		panic(err)
-	}
-	defer decoder.Close()
-
 	player, err := oto.NewPlayer(decoder.SampleRate(), 2, 2, 8192)
 	if err != nil {
 		panic(err)
