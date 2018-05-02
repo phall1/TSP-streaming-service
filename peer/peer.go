@@ -32,6 +32,7 @@ const (
 	LIST
 	PLAY
 	QUIT
+	STOP
 	PAUSE
 )
 
@@ -66,10 +67,14 @@ func main() {
 	become_discoverable(args)
 
 	// go start serving songs
+	//TODO: EPOLL
 	go serve_songs(args)
 
+	send_stop_chan := make(chan struct{})
+	send_done_chan := make(chan struct{})
+
 	for {
-		if handle_command(args) < 0 {
+		if handle_command(args, send_stop_chan, send_done_chan) < 0 {
 			break
 		}
 	}
@@ -143,6 +148,25 @@ func serve_songs(args []string) {
 	}
 }
 
+func serve_songs_epoll(args []string) {
+	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
+	//var event syscall.EpollEvent
+	//var events[MAX_EPOLL_EVENTS]syscall.EpollEvent
+
+	if err != nil {
+		panic(err)
+	}
+	defer server_ln.Close()
+
+	for {
+		client, err := server_ln.Accept()
+		if err != nil {
+			continue
+		}
+		go receive_message(client)
+	}
+}
+
 /**
 * Returns an string slice
 * for all files(songs) in directory "songs"
@@ -194,10 +218,11 @@ func send_local_song_info(tracker net.Conn, songs []string) {
 * STOP - stop streaming song
 * QUIT - <--
  */
-func handle_command(args []string) int {
+func handle_command(args []string, send_stop_chan chan struct{}, send_done_chan chan struct{}) int {
 	cmd := get_cmd()
 	hdr := new(TSP_header)
 	var peer_ip string
+	//var peer net.Conn
 
 	switch cmd {
 	case "LIST":
@@ -210,14 +235,17 @@ func handle_command(args []string) int {
 		fmt.Println("PLAY")
 		hdr.Song_id, peer_ip = get_song_selection()
 		peer := send_play_request(*hdr, peer_ip+args[1], 69)
-		go receive_mp3(peer)
-		// receive mp3
-		// play mp3
-	case "PAUSE":
-		hdr.Type = PAUSE
-		fmt.Println("PAUSE")
-		// find song playing and stop if (in the other goroutine, use
-		// channesl)
+		//go receive_mp3(peer)
+		go receive_mp3(peer, send_done_chan, send_stop_chan)
+	case "STOP":
+		hdr.Type = STOP
+		fmt.Println("STOP")
+		//peer.Close()
+		close(send_stop_chan)
+		fmt.Println("Closed stop chan waiting for done chan")
+		<-send_done_chan
+	// find song playing and stop if (in the other goroutine, use
+	// channesl)
 	case "QUIT":
 		hdr.Type = QUIT
 		_ = send_request(*hdr, TRACKER_IP+args[1])
@@ -236,7 +264,7 @@ func get_cmd() string {
 		Reader: os.Stdin,
 	}
 	query := "Select option"
-	cmd, _ := ui.Select(query, []string{"LIST", "PLAY", "PAUSE", "QUIT"}, &input.Options{
+	cmd, _ := ui.Select(query, []string{"LIST", "PLAY", "STOP", "QUIT"}, &input.Options{
 		Loop: true,
 	})
 	return cmd
@@ -357,6 +385,66 @@ func send_mp3_file(song_file string, client net.Conn) {
 	}
 }
 
+func receive_mp3(server net.Conn, send_done_chan chan struct{}, send_stop_chan chan struct{}) {
+	defer close(send_done_chan)
+	for {
+		select {
+		case <-send_stop_chan:
+			fmt.Println("closgin player")
+			return
+		default:
+			decoder, err := mp3.NewDecoder(server)
+			if err != nil && err == io.EOF {
+				fmt.Println("EOF error handled.")
+				return
+			}
+			if err != nil && err != io.EOF {
+				panic(err)
+			}
+			defer decoder.Close()
+			player, err := oto.NewPlayer(decoder.SampleRate(), 2, 2, 8192)
+			if err != nil && err == io.EOF {
+				fmt.Println("EOF error handled.")
+				return
+			}
+			if err != nil && err != io.EOF {
+				panic(err)
+			}
+			defer player.Close()
+
+			if _, err := io.Copy(player, decoder); err != nil {
+				panic(err)
+			}
+		}
+	}
+}
+
+func play_mp3(server net.Conn) {
+	decoder, err := mp3.NewDecoder(server)
+	if err != nil && err == io.EOF {
+		fmt.Println("EOF error handled.")
+		return
+	}
+	if err != nil && err != io.EOF {
+		panic(err)
+	}
+	defer decoder.Close()
+	player, err := oto.NewPlayer(decoder.SampleRate(), 2, 2, 8192)
+	if err != nil && err == io.EOF {
+		fmt.Println("EOF error handled.")
+		return
+	}
+	if err != nil && err != io.EOF {
+		panic(err)
+	}
+	defer player.Close()
+
+	if _, err := io.Copy(player, decoder); err != nil {
+		panic(err)
+	}
+}
+
+/*
 func receive_mp3(server net.Conn) {
 	decoder, err := mp3.NewDecoder(server)
 	if err != nil {
@@ -369,9 +457,10 @@ func receive_mp3(server net.Conn) {
 	}
 	defer player.Close()
 
-	fmt.Printf("Length: %d[bytes]\n", decoder.Length())
+	//fmt.Printf("Length: %d[bytes]\n", decoder.Length())
 
 	if _, err := io.Copy(player, decoder); err != nil {
 		panic(err)
 	}
 }
+*/
