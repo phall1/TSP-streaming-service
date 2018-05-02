@@ -1,15 +1,18 @@
 package main
 
 import (
-	"encoding/gob"
-	"fmt"
-	// "io/ioutil"
-	"net"
 	"os"
-	"strconv"
-	"strings"
+	"fmt"
+	"net"
 	"sync"
+	"strings"
+	"strconv"
+	"encoding/gob"
 )
+
+const MAX_SONGS = 1000
+var id_counter int = 10
+var info = make([]string, 0)
 
 type TSP_header struct {
 	Type    byte
@@ -28,15 +31,19 @@ const (
 	QUIT
 )
 
-const MAX_SONGS = 1000
-
-var info = make([]string, 0)
-var id_counter int = 10
-
+/*
+ * Allows data to be sent using Gob
+ */
 func init() {
 	gob.Register(&TSP_header{})
 	gob.Register(&TSP_msg{})
 }
+
+/*
+ * Return the tracker server's IP address.
+ *
+ * @return the IP address in string form
+ */
 
 func GetLocalIP() string {
 	addrs, err := net.InterfaceAddrs()
@@ -62,8 +69,7 @@ func main() {
 	}
 	fmt.Println(GetLocalIP())
 
-	// setup server socket
-	// ln, err := net.Listen("tcp", "localhost:"+args[1])
+	// Setup server socket
 	ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
 	if err != nil {
 		panic(err)
@@ -71,12 +77,10 @@ func main() {
 	defer ln.Close()
 
 	var mutex = &sync.Mutex{}
-
 	for {
 		peer, err := ln.Accept()
 		if err != nil {
-			// error accepting this connection
-			fmt.Println("error accepting conn")
+			fmt.Println("Error accepting conn")
 			continue
 		}
 		fmt.Println("handle_connection")
@@ -105,8 +109,6 @@ func handleConnection(peer net.Conn, mutex *sync.Mutex) {
 		send_info_file(peer)
 	case QUIT:
 		fmt.Println("QUIT")
-		// remove songs in the lsit that was jsut sent
-		// Mimic the INIT case?
 		remove_songs(peer)
 	default:
 		fmt.Println("Bad Msg Header")
@@ -120,32 +122,21 @@ func handleConnection(peer net.Conn, mutex *sync.Mutex) {
  * assigns ID's to the new songs
  */
 func get_info_from_peer(peer net.Conn, song_bytes []byte) {
-	// TODO: lock
-	// TODO: assign id numbers properly
 	song_strs := strings.Split(string(song_bytes[:]), "\n")
 	ip := peer.RemoteAddr().String() + ", "
-	fmt.Println("loop")
-	// for i := 0; i < len(song_strs); i += 2 {
 	for i, _ := range song_strs {
 		if song_strs[i] == "" {
 			continue
 		}
-		fmt.Println(id_counter)
 		record := strconv.Itoa(id_counter)
 		record += ": "
 		record += ip
 		record += song_strs[i]
-		// record += song_strs[i+1]
 
-		// fmt.Println(song_strs[i])
-		// fmt.Println(song_strs[i+1])
-		// record := "ID: " + ip + s
-		id_counter++
 		info = append(info, record)
+		id_counter++
 	}
-	fmt.Println("end loop")
 	fmt.Println(info)
-	// unlock
 }
 
 /**
@@ -154,20 +145,15 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
  * assigns ID's to the new songs
  */
 func remove_songs(peer net.Conn) {
-	// TODO: lock
-	// TODO: assign id numbers properly
 	ip := peer.RemoteAddr().String()
 	ip_slice := strings.Split(ip, ":")
-
 	for i := 0; i < len(info); i++ {
 		if strings.Contains(info[i], ip_slice[0]) {
 			info = append(info[:i], info[i+1:]...)
 			i--
 		}
 	}
-
 	fmt.Println(info)
-	// unlock
 }
 
 /**
