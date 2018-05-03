@@ -1,18 +1,14 @@
 package main
 
 import (
-	"os"
+	"encoding/gob"
 	"fmt"
 	"net"
-	"sync"
-	"strings"
+	"os"
 	"strconv"
-	"encoding/gob"
+	"strings"
+	"sync"
 )
-
-const MAX_SONGS = 1000
-var id_counter int = 10
-var info = make([]string, 0)
 
 type TSP_header struct {
 	Type    byte
@@ -29,6 +25,13 @@ const (
 	LIST
 	PLAY
 	QUIT
+
+	MAX_SONGS = 1000
+)
+
+var (
+	id_counter int = 10
+	info           = make([]string, 0)
 )
 
 /*
@@ -128,12 +131,7 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 		if song_strs[i] == "" {
 			continue
 		}
-		record := strconv.Itoa(id_counter)
-		record += ": "
-		record += ip
-		record += song_strs[i]
-
-		info = append(info, record)
+		info = append(info, strconv.Itoa(id_counter)+": "+ip+song_strs[i])
 		id_counter++
 	}
 	fmt.Println(info)
@@ -163,6 +161,7 @@ func remove_songs(peer net.Conn) {
 func send_info_file(peer net.Conn) {
 	info_msg := strings.Join(info, "\n")
 	encoder := gob.NewEncoder(peer)
-	msg_struct := &TSP_msg{TSP_header{Type: 1}, []byte(info_msg)}
-	encoder.Encode(msg_struct)
+	// msg_struct := &TSP_msg{TSP_header{Type: 1}, []byte(info_msg)}
+	// encoder.Encode(msg_struct)
+	encoder.Encode(&TSP_msg{TSP_header{Type: 1}, []byte(info_msg)})
 }
