@@ -161,7 +161,5 @@ func remove_songs(peer net.Conn) {
 func send_info_file(peer net.Conn) {
 	info_msg := strings.Join(info, "\n")
 	encoder := gob.NewEncoder(peer)
-	// msg_struct := &TSP_msg{TSP_header{Type: 1}, []byte(info_msg)}
-	// encoder.Encode(msg_struct)
 	encoder.Encode(&TSP_msg{TSP_header{Type: 1}, []byte(info_msg)})
 }

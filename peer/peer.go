@@ -167,34 +167,6 @@ func send_mp3_file(song_file string, client net.Conn) {
 
 /*----------------------------CLIENT----------------------------*/
 
-func prepare_msg(t byte, id int, content []byte) *TSP_msg {
-	return &TSP_msg{TSP_header{t, id}, content}
-}
-
-func send(msg TSP_msg, dest_ip string) (conn net.Conn) {
-	conn, err := net.Dial("tcp", dest_ip)
-	if err != nil {
-		fmt.Println("error connecting to " + dest_ip)
-		os.Exit(1)
-	}
-	encoder := gob.NewEncoder(conn)
-	encoder.Encode(msg)
-	return
-}
-
-/**
-* prints master list received from tracker
- */
-func print_master_list(list string) {
-	// TODO: format output nicely
-	rows := strings.Split(list, "\n")
-	for _, r := range rows {
-		r = strings.Replace(r, ", ", "\t", -1)
-		end := strings.Index(r, ">")
-		fmt.Println(r[:end])
-	}
-}
-
 /**
 * send local songs to server,
 * tracker other peers now have this ip
@@ -208,6 +180,21 @@ func become_discoverable(args []string) {
 	msg := prepare_msg(INIT, 0, []byte(msg_content))
 	tracker := send(*msg, TRACKER_IP+args[1])
 	defer tracker.Close()
+}
+
+func prepare_msg(t byte, id int, content []byte) *TSP_msg {
+	return &TSP_msg{TSP_header{t, id}, content}
+}
+
+func send(msg TSP_msg, dest_ip string) (conn net.Conn) {
+	conn, err := net.Dial("tcp", dest_ip)
+	if err != nil {
+		fmt.Println("error connecting to " + dest_ip)
+		os.Exit(1)
+	}
+	encoder := gob.NewEncoder(conn)
+	encoder.Encode(msg)
+	return
 }
 
 /**
@@ -230,6 +217,19 @@ func get_local_song_info(dir_name string) []string {
 		song_info = append(song_info, string(content[:]))
 	}
 	return song_info
+}
+
+/**
+* prints master list received from tracker
+ */
+func print_master_list(list string) {
+	// TODO: format output nicely
+	rows := strings.Split(list, "\n")
+	for _, r := range rows {
+		r = strings.Replace(r, ", ", "\t", -1)
+		end := strings.Index(r, ">")
+		fmt.Println(r[:end])
+	}
 }
 
 func get_cmd() string {
@@ -280,8 +280,7 @@ func receive_master_list(tracker net.Conn) {
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
 
-	master_list = string(in_msg.Msg[:])
-	print_master_list(master_list)
+	print_master_list(string(in_msg.Msg[:]))
 }
 
 /**
