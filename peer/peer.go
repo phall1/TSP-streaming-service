@@ -125,9 +125,6 @@ func receive_message(client net.Conn) {
 	}
 }
 */
-func get_io_reader(client int) (r io.Reader) {
-
-}
 
 /**
  * called by the server thread, will act accordingly
