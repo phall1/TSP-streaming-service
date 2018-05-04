@@ -1,6 +1,7 @@
 /**
  * Authors: Patrick Hall
  *			James Ponwith
+ *          Max Gradwohl
  */
 
 package main
@@ -33,6 +34,7 @@ const (
 	TRACKER_IP = "172.17.92.155:"
 	/* TRACKER_IP = "172.17.31.37:" */
 	MAX_EVENTS = 64
+	EPOLLET    = 1 << 31
 )
 
 type TSP_header struct {
@@ -244,7 +246,7 @@ func serve_songs_epoll(args []string) {
 					continue
 				}
 				syscall.SetNonblock(fd, true)
-				event.Events = syscall.EPOLLIN
+				event.Events = syscall.EPOLLIN | EPOLLET
 				event.Fd = int32(connFd)
 				err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, connFd, &event)
 				if err != nil {
