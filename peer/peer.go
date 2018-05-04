@@ -253,6 +253,7 @@ func get_song_selection() (int, string) {
 		Reader: os.Stdin,
 	}
 	query := "Select a song"
+	fmt.Println(songs)
 	id, _ := ui.Ask(query, &input.Options{
 		ValidateFunc: func(id string) error {
 			for _, s := range songs {
@@ -280,7 +281,8 @@ func receive_master_list(tracker net.Conn) {
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
 
-	print_master_list(string(in_msg.Msg[:]))
+	master_list = string(in_msg.Msg[:])
+	print_master_list(master_list)
 }
 
 /**
