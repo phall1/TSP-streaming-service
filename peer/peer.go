@@ -1,3 +1,8 @@
+/**
+ * Authors: Patrick Hall
+ *			James Ponwith
+ */
+
 package main
 
 import (
@@ -57,7 +62,6 @@ func main() {
 	become_discoverable(args)
 
 	// go start serving songs
-	//TODO: EPOLL
 	go serve_songs(args)
 
 	play := make(chan bool)
@@ -121,7 +125,8 @@ func receive_message(client net.Conn) {
 }
 
 /**
- *
+ * Server side of peers. Handle incoming peers, establish connections
+ * and adventually send them music.
  */
 func serve_songs(args []string) {
 	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
@@ -156,7 +161,8 @@ func serve_songs_epoll(args []string) {
 		panic(err)
 	}
 
-	addr := syscall.SockAddrInet4{Port: strconv.ParseInt(args[1], 10, 32)}
+	port, _ := strconv.ParseInt(args[1], 10, 32)
+	addr := syscall.SockaddrInet4{Port: int(port)}
 	copy(addr.Addr[:], net.ParseIP(GetLocalIP()).To4())
 
 	syscall.Bind(fd, &addr)
@@ -170,7 +176,7 @@ func serve_songs_epoll(args []string) {
 
 	event.Events = syscall.EPOLLIN
 	event.Fd = int32(fd)
-	if e = syscall.EpollCtl(epft, syscall.EPOLL_CTL_ADD, fd, &event); e != nil {
+	if e = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, fd, &event); e != nil {
 		panic(e)
 	}
 
@@ -182,16 +188,16 @@ func serve_songs_epoll(args []string) {
 		}
 
 		for ev := 0; ev < nevents; ev++ {
-			if inf(events[ev].Fd) == fd {
+			if int(events[ev].Fd) == fd {
 				connFd, _, err := syscall.Accept(fd)
 				if err != nil {
 					fmt.Println("accept: ", err)
 					continue
 				}
 				syscall.SetNonblock(fd, true)
-				event.Events = syscall.EPOLLIN | EPOLLET
+				event.Events = syscall.EPOLLIN
 				event.Fd = int32(connFd)
-				err := syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, connFd, &event)
+				err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, connFd, &event)
 				if err != nil {
 					panic(err)
 				}
@@ -278,10 +284,6 @@ func print_master_list(list string) {
 		song_artist := strings.Split(r, ",")[2]
 		end := strings.Index(song_artist, ">")
 		fmt.Println(song_id + ":" + song_name + "," + song_artist[:end])
-
-		/*	r = strings.Replace(r, ", ", "\t", -1)
-			fmt.Println(r[:end])
-		*/
 	}
 	fmt.Println(" ")
 }
