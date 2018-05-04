@@ -15,7 +15,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	//	"syscall"
+	"syscall"
 
 	"github.com/hajimehoshi/go-mp3"
 	"github.com/hajimehoshi/oto"
@@ -62,7 +62,7 @@ func main() {
 	become_discoverable(args)
 
 	// go start serving songs
-	go serve_songs(args)
+	go serve_songs_epoll(args)
 
 	play := make(chan bool)
 	stop := make(chan bool)
@@ -106,7 +106,33 @@ func get_song_filename(id string) string {
 /**
  * called by the server thread, will act accordingly
  */
+/*
 func receive_message(client net.Conn) {
+	decoder := gob.NewDecoder(client)
+	in_msg := new(TSP_msg)
+	decoder.Decode(&in_msg)
+
+	switch in_msg.Header.Type {
+	case PLAY:
+		song_file := get_song_filename(strconv.Itoa(in_msg.Header.Song_id))
+		send_mp3_file(song_file, client)
+		if song_file == "" {
+			// fmt.Println("error sing file empty") // to silence the warnings
+		}
+	default:
+		// send a null response
+		return
+	}
+}
+*/
+func get_io_reader(client int) (r io.Reader) {
+
+}
+
+/**
+ * called by the server thread, will act accordingly
+ */
+func receive_message_epoll(client io.Reader) {
 	decoder := gob.NewDecoder(client)
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
@@ -128,6 +154,7 @@ func receive_message(client net.Conn) {
  * Server side of peers. Handle incoming peers, establish connections
  * and adventually send them music.
  */
+/*
 func serve_songs(args []string) {
 	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
 	if err != nil {
@@ -143,8 +170,8 @@ func serve_songs(args []string) {
 		go receive_message(client)
 	}
 }
+*/
 
-/*
 func serve_songs_epoll(args []string) {
 	// var event syscall.EpollEvent
 	var event syscall.EpollEvent
@@ -202,21 +229,22 @@ func serve_songs_epoll(args []string) {
 					panic(err)
 				}
 			} else {
-				receive_message(int(events[ev].Fd))
+				receive_message_epoll(int(events[ev].Fd))
 			}
 		}
 	}
 }
-*/
 
-func send_mp3_file(song_file string, client net.Conn) {
-	defer client.Close()
-	f, err := os.Open("songs/" + song_file)
+func send_mp3_file(song_file string, client int) {
+	defer syscall.Close(client)
+	//f, err := os.Open("songs/" + song_file)
+	bytes, err := ioutil.ReadFile("songs" + song_file)
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
-	_, _ = io.Copy(client, f)
+	//	defer f.Close()
+	syscall.Write(client, bytes)
+	//_, _ = io.Copy(client, bytes)
 }
 
 /*----------------------------CLIENT----------------------------*/
