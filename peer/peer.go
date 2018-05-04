@@ -30,8 +30,8 @@ const (
 	STOP
 	QUIT
 
-	// TRACKER_IP = "172.17.92.155:"
-	TRACKER_IP = "172.17.31.37:"
+	TRACKER_IP = "172.17.92.155:"
+	/* TRACKER_IP = "172.17.31.37:" */
 	MAX_EVENTS = 64
 )
 
@@ -43,6 +43,26 @@ type TSP_header struct {
 type TSP_msg struct {
 	Header TSP_header
 	Msg    []byte
+}
+
+type Reader struct {
+	read string
+	done bool
+}
+
+func NewReader(toRead string) *Reader {
+	return &Reader{toRead, false}
+}
+
+func (r *Reader) Read(p []byte) (n int, err error) {
+	if r.done {
+		return 0, io.EOF
+	}
+	for i, b := range []byte(r.read) {
+		p[i] = b
+	}
+	r.done = true
+	return len(r.read), nil
 }
 
 var master_list string
@@ -129,15 +149,20 @@ func receive_message(client net.Conn) {
 /**
  * called by the server thread, will act accordingly
  */
-func receive_message_epoll(client io.Reader) {
-	decoder := gob.NewDecoder(client)
+func receive_message_epoll(client_fd int) {
+	bytes := make([]byte, 1024)
+	_, _ = syscall.Read(client_fd, bytes)
+
+	M := NewReader(string(bytes))
+
+	decoder := gob.NewDecoder(M)
 	in_msg := new(TSP_msg)
 	decoder.Decode(&in_msg)
 
 	switch in_msg.Header.Type {
 	case PLAY:
 		song_file := get_song_filename(strconv.Itoa(in_msg.Header.Song_id))
-		send_mp3_file(song_file, client)
+		send_mp3_file(song_file, client_fd)
 		if song_file == "" {
 			// fmt.Println("error sing file empty") // to silence the warnings
 		}
@@ -226,7 +251,7 @@ func serve_songs_epoll(args []string) {
 					panic(err)
 				}
 			} else {
-				receive_message_epoll(int(events[ev].Fd))
+				go receive_message_epoll(int(events[ev].Fd))
 			}
 		}
 	}
@@ -235,7 +260,7 @@ func serve_songs_epoll(args []string) {
 func send_mp3_file(song_file string, client int) {
 	defer syscall.Close(client)
 	//f, err := os.Open("songs/" + song_file)
-	bytes, err := ioutil.ReadFile("songs" + song_file)
+	bytes, err := ioutil.ReadFile("songs/" + song_file)
 	if err != nil {
 		panic(err)
 	}
