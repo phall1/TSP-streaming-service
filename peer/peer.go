@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/hajimehoshi/go-mp3"
 	"github.com/hajimehoshi/oto"
@@ -24,7 +25,9 @@ const (
 	STOP
 	PAUSE
 
-	TRACKER_IP = "172.17.92.155:"
+	// TRACKER_IP = "172.17.92.155:"
+	TRACKER_IP = "172.17.31.37:"
+	MAX_EVENTS = 64
 )
 
 type TSP_header struct {
@@ -136,24 +139,67 @@ func serve_songs(args []string) {
 	}
 }
 
-func serve_songs_epoll(args []string) {
-	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
-	//var event syscall.EpollEvent
-	//var events[MAX_EPOLL_EVENTS]syscall.EpollEvent
-
-	if err != nil {
-		panic(err)
-	}
-	defer server_ln.Close()
-
-	for {
-		client, err := server_ln.Accept()
-		if err != nil {
-			continue
-		}
-		go receive_message(client)
-	}
-}
+// func serve_songs_epoll(args []string) {
+//     // var event syscall.EpollEvent
+//     var event syscall.EpollEvent
+//
+//     var events [MAX_EVENTS]syscall.EpollEvent
+//
+//     fd, err := syscall.Socket(syscall.AF_INET, syscall.O_NONBLOCK|syscall.SOCK_STREAM, 0)
+//     if err != nil {
+//         panic(err)
+//     }
+//     defer syscall.Close(fd)
+//
+//     if err = syscall.SetNonblock(fd, true); err != nil {
+//         panic(err)
+//     }
+//
+//     addr := syscall.SockAddrInet4{Port: strconv.ParseInt(args[1], 10, 32)}
+//     copy(addr.Addr[:], net.ParseIP(GetLocalIP()).To4())
+//
+//     syscall.Bind(fd, &addr)
+//     syscall.Listen(fd, 10)
+//
+//     epfd, e := syscall.EpollCreate1(0)
+//     if e != nil {
+//         panic(e)
+//     }
+//     defer syscall.Close(epfd)
+//
+//     event.Events = syscall.EPOLLIN
+//     event.Fd = int32(fd)
+//     if e = syscall.EpollCtl(epft, syscall.EPOLL_CTL_ADD, fd, &event); e != nil {
+//         panic(e)
+//     }
+//
+//     for {
+//         nevents, e := syscall.EpollWait(epfd, events[:], -1)
+//         if e != nil {
+//             fmt.Println("epoll_wait: ", e)
+//             break
+//         }
+//
+//         for ev := 0; ev < nevents; ev++ {
+//             if inf(events[ev].Fd) == fd {
+//                 connFd, _, err := syscall.Accept(fd)
+//                 if err != nil {
+//                     fmt.Println("accept: ", err)
+//                     continue
+//                 }
+//                 syscall.SetNonblock(fd, true)
+//                 event.Events = syscall.EPOLLIN | EPOLLET
+//                 event.Fd = int32(connFd)
+//                 err := syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, connFd, &event)
+//                 if err != nil {
+//                     panic(err)
+//                 }
+//             } else {
+//                 receive_message(int(events[ev].Fd))
+//             }
+//         }
+//     }
+// }
 
 func send_mp3_file(song_file string, client net.Conn) {
 	defer client.Close()

@@ -74,6 +74,7 @@ func main() {
 
 	// Setup server socket
 	ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
+	// ln, err := net.Listen("tcp", "localhost:"+args[1])
 	if err != nil {
 		panic(err)
 	}
