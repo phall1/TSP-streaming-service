@@ -10,7 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"syscall"
+	//	"syscall"
 
 	"github.com/hajimehoshi/go-mp3"
 	"github.com/hajimehoshi/oto"
@@ -20,10 +20,10 @@ import (
 const (
 	INIT = iota
 	LIST
+	INFO
 	PLAY
-	QUIT
 	STOP
-	PAUSE
+	QUIT
 
 	// TRACKER_IP = "172.17.92.155:"
 	TRACKER_IP = "172.17.31.37:"
@@ -139,67 +139,69 @@ func serve_songs(args []string) {
 	}
 }
 
-// func serve_songs_epoll(args []string) {
-//     // var event syscall.EpollEvent
-//     var event syscall.EpollEvent
-//
-//     var events [MAX_EVENTS]syscall.EpollEvent
-//
-//     fd, err := syscall.Socket(syscall.AF_INET, syscall.O_NONBLOCK|syscall.SOCK_STREAM, 0)
-//     if err != nil {
-//         panic(err)
-//     }
-//     defer syscall.Close(fd)
-//
-//     if err = syscall.SetNonblock(fd, true); err != nil {
-//         panic(err)
-//     }
-//
-//     addr := syscall.SockAddrInet4{Port: strconv.ParseInt(args[1], 10, 32)}
-//     copy(addr.Addr[:], net.ParseIP(GetLocalIP()).To4())
-//
-//     syscall.Bind(fd, &addr)
-//     syscall.Listen(fd, 10)
-//
-//     epfd, e := syscall.EpollCreate1(0)
-//     if e != nil {
-//         panic(e)
-//     }
-//     defer syscall.Close(epfd)
-//
-//     event.Events = syscall.EPOLLIN
-//     event.Fd = int32(fd)
-//     if e = syscall.EpollCtl(epft, syscall.EPOLL_CTL_ADD, fd, &event); e != nil {
-//         panic(e)
-//     }
-//
-//     for {
-//         nevents, e := syscall.EpollWait(epfd, events[:], -1)
-//         if e != nil {
-//             fmt.Println("epoll_wait: ", e)
-//             break
-//         }
-//
-//         for ev := 0; ev < nevents; ev++ {
-//             if inf(events[ev].Fd) == fd {
-//                 connFd, _, err := syscall.Accept(fd)
-//                 if err != nil {
-//                     fmt.Println("accept: ", err)
-//                     continue
-//                 }
-//                 syscall.SetNonblock(fd, true)
-//                 event.Events = syscall.EPOLLIN | EPOLLET
-//                 event.Fd = int32(connFd)
-//                 err := syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, connFd, &event)
-//                 if err != nil {
-//                     panic(err)
-//                 }
-//             } else {
-//                 receive_message(int(events[ev].Fd))
-//             }
-//         }
-//     }
-// }
+/*
+func serve_songs_epoll(args []string) {
+	// var event syscall.EpollEvent
+	var event syscall.EpollEvent
+
+	var events [MAX_EVENTS]syscall.EpollEvent
+
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.O_NONBLOCK|syscall.SOCK_STREAM, 0)
+	if err != nil {
+		panic(err)
+	}
+	defer syscall.Close(fd)
+
+	if err = syscall.SetNonblock(fd, true); err != nil {
+		panic(err)
+	}
+
+	addr := syscall.SockAddrInet4{Port: strconv.ParseInt(args[1], 10, 32)}
+	copy(addr.Addr[:], net.ParseIP(GetLocalIP()).To4())
+
+	syscall.Bind(fd, &addr)
+	syscall.Listen(fd, 10)
+
+	epfd, e := syscall.EpollCreate1(0)
+	if e != nil {
+		panic(e)
+	}
+	defer syscall.Close(epfd)
+
+	event.Events = syscall.EPOLLIN
+	event.Fd = int32(fd)
+	if e = syscall.EpollCtl(epft, syscall.EPOLL_CTL_ADD, fd, &event); e != nil {
+		panic(e)
+	}
+
+	for {
+		nevents, e := syscall.EpollWait(epfd, events[:], -1)
+		if e != nil {
+			fmt.Println("epoll_wait: ", e)
+			break
+		}
+
+		for ev := 0; ev < nevents; ev++ {
+			if inf(events[ev].Fd) == fd {
+				connFd, _, err := syscall.Accept(fd)
+				if err != nil {
+					fmt.Println("accept: ", err)
+					continue
+				}
+				syscall.SetNonblock(fd, true)
+				event.Events = syscall.EPOLLIN | EPOLLET
+				event.Fd = int32(connFd)
+				err := syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, connFd, &event)
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				receive_message(int(events[ev].Fd))
+			}
+		}
+	}
+}
+*/
 
 func send_mp3_file(song_file string, client net.Conn) {
 	defer client.Close()
@@ -269,13 +271,19 @@ func get_local_song_info(dir_name string) []string {
 * prints master list received from tracker
  */
 func print_master_list(list string) {
-	// TODO: format output nicely
 	rows := strings.Split(list, "\n")
 	for _, r := range rows {
-		r = strings.Replace(r, ", ", "\t", -1)
-		end := strings.Index(r, ">")
-		fmt.Println(r[:end])
+		song_id := strings.Split(r, ":")[0]
+		song_name := strings.Split(r, ",")[1]
+		song_artist := strings.Split(r, ",")[2]
+		end := strings.Index(song_artist, ">")
+		fmt.Println(song_id + ":" + song_name + "," + song_artist[:end])
+
+		/*	r = strings.Replace(r, ", ", "\t", -1)
+			fmt.Println(r[:end])
+		*/
 	}
+	fmt.Println(" ")
 }
 
 func get_cmd() string {
@@ -284,10 +292,23 @@ func get_cmd() string {
 		Reader: os.Stdin,
 	}
 	query := "Select option"
-	cmd, _ := ui.Select(query, []string{"LIST", "PLAY", "STOP", "QUIT"}, &input.Options{
+	cmd, _ := ui.Select(query, []string{"LIST", "INFO", "PLAY", "STOP", "QUIT"}, &input.Options{
 		Loop: true,
 	})
 	return cmd
+}
+
+func get_song_info(id string) {
+	songs := strings.Split(master_list, "\n")
+	for _, s := range songs {
+		song_id := strings.Split(s, ":")[0]
+		if song_id == id {
+			fmt.Println(s + "\n")
+			return
+		}
+	}
+	fmt.Println("Song not found.")
+	return
 }
 
 func get_song_selection() (int, string) {
@@ -299,7 +320,7 @@ func get_song_selection() (int, string) {
 		Reader: os.Stdin,
 	}
 	query := "Select a song"
-	fmt.Println(songs)
+	//fmt.Println(songs)
 	id, _ := ui.Ask(query, &input.Options{
 		ValidateFunc: func(id string) error {
 			for _, s := range songs {
@@ -353,6 +374,11 @@ func handle_command(args []string, play chan bool, stop chan bool) int {
 		peer := send(*msg, peer_ip+args[1])
 		go receive_mp3(peer, play, stop)
 		play <- true
+	case "INFO":
+		id, _ := get_song_selection()
+		get_song_info(strconv.Itoa(id))
+		//	msg := prepare_msg(INFO, id, nil)
+
 	case "STOP":
 		stop <- true
 	case "QUIT":
