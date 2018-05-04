@@ -23,7 +23,9 @@ type TSP_msg struct {
 const (
 	INIT = iota
 	LIST
+	INFO
 	PLAY
+	STOP
 	QUIT
 
 	MAX_SONGS = 1000
