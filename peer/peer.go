@@ -31,8 +31,8 @@ const (
 	STOP
 	QUIT
 
+	// To run, put the tracker's ip address below here
 	TRACKER_IP = "172.17.92.155:"
-	/* TRACKER_IP = "172.17.31.37:" */
 	MAX_EVENTS = 64
 	EPOLLET    = 1 << 31
 )
@@ -52,21 +52,6 @@ type Reader struct {
 	done bool
 }
 
-func NewReader(toRead string) *Reader {
-	return &Reader{toRead, false}
-}
-
-func (r *Reader) Read(p []byte) (n int, err error) {
-	if r.done {
-		return 0, io.EOF
-	}
-	for i, b := range []byte(r.read) {
-		p[i] = b
-	}
-	r.done = true
-	return len(r.read), nil
-}
-
 var master_list string
 
 func init() {
@@ -83,7 +68,6 @@ func main() {
 
 	become_discoverable(args)
 
-	// go start serving songs
 	go serve_songs_epoll(args)
 
 	play := make(chan bool)
@@ -97,6 +81,10 @@ func main() {
 }
 
 /*----------------------------SERVER----------------------------*/
+
+/**
+ *  @return the host's local IPv4 address
+ */
 func GetLocalIP() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -113,6 +101,25 @@ func GetLocalIP() string {
 	return ""
 }
 
+func NewReader(toRead string) *Reader {
+	return &Reader{toRead, false}
+}
+
+func (r *Reader) Read(p []byte) (n int, err error) {
+	if r.done {
+		return 0, io.EOF
+	}
+	for i, b := range []byte(r.read) {
+		p[i] = b
+	}
+	r.done = true
+	return len(r.read), nil
+}
+
+/**
+ * @param id the id of the string to access
+ * @return from the master list, the filename of the song specified by the id
+ */
 func get_song_filename(id string) string {
 	rows := strings.Split(master_list, "\n")
 	for _, r := range rows {
@@ -126,30 +133,7 @@ func get_song_filename(id string) string {
 }
 
 /**
- * called by the server thread, will act accordingly
- */
-/*
-func receive_message(client net.Conn) {
-	decoder := gob.NewDecoder(client)
-	in_msg := new(TSP_msg)
-	decoder.Decode(&in_msg)
-
-	switch in_msg.Header.Type {
-	case PLAY:
-		song_file := get_song_filename(strconv.Itoa(in_msg.Header.Song_id))
-		send_mp3_file(song_file, client)
-		if song_file == "" {
-			// fmt.Println("error sing file empty") // to silence the warnings
-		}
-	default:
-		// send a null response
-		return
-	}
-}
-*/
-
-/**
- * called by the server thread, will act accordingly
+ * @param client_fd the file descriptor of the connected client
  */
 func receive_message_epoll(client_fd int) {
 	bytes := make([]byte, 1024)
@@ -165,37 +149,17 @@ func receive_message_epoll(client_fd int) {
 	case PLAY:
 		song_file := get_song_filename(strconv.Itoa(in_msg.Header.Song_id))
 		send_mp3_file(song_file, client_fd)
-		if song_file == "" {
-			// fmt.Println("error sing file empty") // to silence the warnings
-		}
 	default:
-		// send a null response
 		return
 	}
 }
 
 /**
- * Server side of peers. Handle incoming peers, establish connections
- * and adventually send them music.
+ * @param args
+ * Server thread of the host. This function handles sets up epoll for
+ * nonblocking, asynchronous I/O. It handles incoming peers, and calls
+ * receive_message to handle their requests accordingly
  */
-/*
-func serve_songs(args []string) {
-	server_ln, err := net.Listen("tcp", GetLocalIP()+":"+args[1])
-	if err != nil {
-		panic(err)
-	}
-	defer server_ln.Close()
-
-	for {
-		client, err := server_ln.Accept()
-		if err != nil {
-			continue
-		}
-		go receive_message(client)
-	}
-}
-*/
-
 func serve_songs_epoll(args []string) {
 	// var event syscall.EpollEvent
 	var event syscall.EpollEvent
@@ -212,10 +176,16 @@ func serve_songs_epoll(args []string) {
 		panic(err)
 	}
 
+	// Get port and local ip address
 	port, _ := strconv.ParseInt(args[1], 10, 32)
+
+	// sruct for address + port
 	addr := syscall.SockaddrInet4{Port: int(port)}
+
+	// Copy local ip address to addr struct
 	copy(addr.Addr[:], net.ParseIP(GetLocalIP()).To4())
 
+	// bind and listen
 	syscall.Bind(fd, &addr)
 	syscall.Listen(fd, 10)
 
@@ -259,23 +229,26 @@ func serve_songs_epoll(args []string) {
 	}
 }
 
+/**
+ * sends the mp3 bytes to the client using syscall.Write
+ * @param client_fd the client's file descriptor
+ */
 func send_mp3_file(song_file string, client int) {
 	defer syscall.Close(client)
-	//f, err := os.Open("songs/" + song_file)
 	bytes, err := ioutil.ReadFile("songs/" + song_file)
 	if err != nil {
 		panic(err)
 	}
-	//	defer f.Close()
 	syscall.Write(client, bytes)
-	//_, _ = io.Copy(client, bytes)
 }
 
 /*----------------------------CLIENT----------------------------*/
 
 /**
-* send local songs to server,
-* tracker other peers now have this ip
+ * Makes the client 'discoverable' to other peers by sending
+ * the host's song lsit to the tracker server
+ * @param args cl arguments which contain the port and directory
+ * with songs
  */
 func become_discoverable(args []string) {
 	songs := get_local_song_info(args[2])
@@ -288,10 +261,22 @@ func become_discoverable(args []string) {
 	defer tracker.Close()
 }
 
+/*
+ * Populates a struct to send using TSP protocol
+ * @param t Song Type
+ * @param id Song ID
+ * @param contennt content of the message
+ */
 func prepare_msg(t byte, id int, content []byte) *TSP_msg {
 	return &TSP_msg{TSP_header{t, id}, content}
 }
 
+/**
+ * Sends a TSP message
+ * @param msg the message to send
+ * @param dest_ip the destination ip address
+ * @return conn the net.Conn of the destination host
+ */
 func send(msg TSP_msg, dest_ip string) (conn net.Conn) {
 	conn, err := net.Dial("tcp", dest_ip)
 	if err != nil {
@@ -304,8 +289,10 @@ func send(msg TSP_msg, dest_ip string) (conn net.Conn) {
 }
 
 /**
-* Returns an string slice
-* for all files(songs) in directory "songs"
+ * Searches a local directory for song information in a format
+ * specified by the TSP protocol
+ * @param dir_name directory of the local songs and their info
+ * @return a bye slice of the song information stored locally
  */
 func get_local_song_info(dir_name string) []string {
 	info_files, err := ioutil.ReadDir(dir_name)
@@ -326,7 +313,9 @@ func get_local_song_info(dir_name string) []string {
 }
 
 /**
-* prints master list received from tracker
+ * prints master list received from tracker
+ * Prints the list of songs from tracker
+ * @aram list the master list received from tracker
  */
 func print_master_list(list string) {
 	rows := strings.Split(list, "\n")
@@ -340,6 +329,9 @@ func print_master_list(list string) {
 	fmt.Println(" ")
 }
 
+/**
+ * Prompts user for the command to execute
+ */
 func get_cmd() string {
 	ui := &input.UI{
 		Writer: os.Stdout,
@@ -352,6 +344,10 @@ func get_cmd() string {
 	return cmd
 }
 
+/**
+ * Prints the song info for the song specified id
+ * @param id the id of the song that we want to print the
+ */
 func get_song_info(id string) {
 	songs := strings.Split(master_list, "\n")
 	for _, s := range songs {
@@ -365,6 +361,11 @@ func get_song_info(id string) {
 	return
 }
 
+/**
+ * Prompts and read id selection from the user
+ * @return ret the song id
+ * @return ip the ip address of the remote peer
+ */
 func get_song_selection() (int, string) {
 	songs := strings.Split(master_list, "\n")
 	var ip string
@@ -374,7 +375,6 @@ func get_song_selection() (int, string) {
 		Reader: os.Stdin,
 	}
 	query := "Select a song"
-	//fmt.Println(songs)
 	id, _ := ui.Ask(query, &input.Options{
 		ValidateFunc: func(id string) error {
 			for _, s := range songs {
@@ -407,12 +407,15 @@ func receive_master_list(tracker net.Conn) {
 }
 
 /**
-* handle input command from the user
-* LIST - get song list from peers
-* PLAY <song id> - play song
-* PAUSE - pauses playing of song (buffering continues)
-* STOP - stop streaming song
-* QUIT - <--
+ * handle input command from the user
+ * @param args
+ * @param play the channel to send play requests to goroutines
+ * @param stop the channel to send stop requests to goroutines
+ * LIST - get song list from peers
+ * PLAY <song id> - play song
+ * PAUSE - pauses playing of song (buffering continues)
+ * STOP - stop streaming song
+ * QUIT - <--
  */
 func handle_command(args []string, play chan bool, stop chan bool) int {
 	cmd := get_cmd()
@@ -431,8 +434,6 @@ func handle_command(args []string, play chan bool, stop chan bool) int {
 	case "INFO":
 		id, _ := get_song_selection()
 		get_song_info(strconv.Itoa(id))
-		//	msg := prepare_msg(INFO, id, nil)
-
 	case "STOP":
 		stop <- true
 	case "QUIT":
@@ -445,7 +446,15 @@ func handle_command(args []string, play chan bool, stop chan bool) int {
 	return 0
 }
 
-// hello
+/**
+ * Receives the mp3 bytes from the peer. Spawns off a goroutine to actually
+ * play the music. This function will continue to play music until the song is
+ * done or a stop message is received
+ *
+ * @param serrver the generic and stream-oriented connection with a peer
+ * @param play channel to receive play messages
+ * @param stop channel to receive stop messages
+ */
 func receive_mp3(server net.Conn, play chan bool, stop chan bool) {
 	defer server.Close()
 	for {
