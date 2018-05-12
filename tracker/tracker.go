@@ -98,6 +98,9 @@ func main() {
  * handles new connections
  * either takes the new peer's song list,
  * or sends back the master info file
+ *
+ * @param peer Connection with a peer on network
+ * @param mutex Mutex for locking master song list
  */
 func handleConnection(peer net.Conn, mutex *sync.Mutex) {
 	defer peer.Close()
@@ -126,6 +129,8 @@ func handleConnection(peer net.Conn, mutex *sync.Mutex) {
  * takes new peer's song list, and adds their songs
  * to the info file, with the peers IP addess, and
  * assigns ID's to the new songs
+ * @param peer Peer connectoin
+ * @param song_bytes the bytes containing song info
  */
 func get_info_from_peer(peer net.Conn, song_bytes []byte) {
 	song_strs := strings.Split(string(song_bytes[:]), "\n")
@@ -144,6 +149,7 @@ func get_info_from_peer(peer net.Conn, song_bytes []byte) {
  * takes new peer's song list, and adds their songs
  * to the info file, with the peers IP addess, and
  * assigns ID's to the new songs
+ * @param peer the Peer connection
  */
 func remove_songs(peer net.Conn) {
 	ip := peer.RemoteAddr().String()
@@ -160,6 +166,7 @@ func remove_songs(peer net.Conn) {
 /**
  * send the master song info file to the peer
  * that requested it
+ * @param peer the Peer connection
  */
 func send_info_file(peer net.Conn) {
 	info_msg := strings.Join(info, "\n")
